@@ -82,7 +82,7 @@ if uploaded_file:
             return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
         # Group by 'Date' and 'Client' (Campaign), instead of 'Collector'
-        for date, client, group in df[~df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([df['Date'].dt.date, 'Client']):
+        for (date, client), group in df[~df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([df['Date'].dt.date, 'Client']):
 
             # Calculate the metrics
             total_collectors = group['Remark By'].nunique()  # Count distinct collectors
