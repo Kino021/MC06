@@ -48,7 +48,7 @@ if uploaded_file is not None:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.write("## Summary Table by Collector per Day")
+        st.write("## Summary Table by Day")
 
         # Add date filter
         min_date = df['Date'].min().date()
@@ -57,54 +57,39 @@ if uploaded_file is not None:
 
         filtered_df = df[(df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)]
 
-        # Initialize an empty DataFrame for the summary table by collector
-        collector_summary = pd.DataFrame(columns=[ 
-            'Day', 'Collector', 'Total Calls', 'Total Connected', 'Total PTP', 'Total RPC', 'PTP Amount', 'Balance Amount', 'Talk Time (HH:MM:SS)'
+        # Initialize an empty DataFrame for the summary table
+        summary_table = pd.DataFrame(columns=[ 
+            'Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)'
         ])
 
-        # Group by 'Date' and 'Remark By' (Collector)
-        for (date, collector), collector_group in filtered_df[~filtered_df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([filtered_df['Date'].dt.date, 'Remark By']):
-            # Calculate the metrics
-            total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
-            total_ptp = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['Account No.'].nunique()
-            total_rpc = collector_group[collector_group['Status'].str.contains('RPC', na=False)]['Account No.'].nunique()
-            ptp_amount = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['PTP Amount'].sum()
+        # Group by 'Date'
+        for date, date_group in filtered_df.groupby(filtered_df['Date'].dt.date):
+            # Calculate metrics
+            total_agents = date_group['Remark By'].nunique()  # Count unique agents for the day
+            total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
 
-            # Filter rows where PTP Amount is not zero for balance calculation
-            balance_amount = collector_group[(collector_group['Status'].str.contains('PTP', na=False)) & (collector_group['PTP Amount'] != 0)]['Balance'].sum()
-
-            # Calculate talk time in minutes
-            total_talk_time = collector_group['Talk Time Duration'].sum() / 60  # Convert from seconds to minutes
+            # Calculate total talk time in minutes
+            total_talk_time = date_group['Talk Time Duration'].sum() / 60  # Convert from seconds to minutes
 
             # Round the total talk time to nearest second and convert to HH:MM:SS format
             rounded_talk_time = round(total_talk_time * 60)  # Round to nearest second
             talk_time_str = str(pd.to_timedelta(rounded_talk_time, unit='s'))  # Convert to Timedelta and then to string
             formatted_talk_time = talk_time_str.split()[2]  # Extract the time part from the string (HH:MM:SS)
 
-            # Add the total calls (filter rows based on Remark Type)
-            total_calls = collector_group[
-                collector_group['Remark Type'].str.contains('OUTGOING|FOLLOWUP|PREDICTIVE', case=False, na=False) &
-                ~collector_group['Remark By'].isin(exclude_users)
-            ].shape[0]
-
-            # Add the row to the summary with Total Calls after Collector
-            collector_summary = pd.concat([collector_summary, pd.DataFrame([{
+            # Add the row to the summary table
+            summary_table = pd.concat([summary_table, pd.DataFrame([{
                 'Day': date,
-                'Collector': collector,
-                'Total Calls': total_calls,  # Move Total Calls after Collector
+                'Total Agents': total_agents,
                 'Total Connected': total_connected,
-                'Total PTP': total_ptp,
-                'Total RPC': total_rpc,
-                'PTP Amount': ptp_amount,
-                'Balance Amount': balance_amount,
                 'Talk Time (HH:MM:SS)': formatted_talk_time,  # Add formatted talk time
             }])], ignore_index=True)
 
-        # Calculate and append totals for the collector summary
-        total_calls = collector_summary['Total Calls'].sum()  # Total Calls count across all collectors
+        # Calculate and append totals for the summary table
+        total_agents = summary_table['Total Agents'].sum()  # Total Agents count across all days
+        total_connected = summary_table['Total Connected'].sum()  # Total Connected count across all days
 
         # Calculate the total talk time for the total row
-        total_talk_time_minutes = collector_summary['Talk Time (HH:MM:SS)'].apply(
+        total_talk_time_minutes = summary_table['Talk Time (HH:MM:SS)'].apply(
             lambda x: pd.to_timedelta(x).total_seconds() / 60).sum()  # Sum the talk time in minutes
 
         # Round the total talk time to the nearest second before converting to HH:MM:SS
@@ -116,23 +101,15 @@ if uploaded_file is not None:
 
         total_row = pd.DataFrame([{
             'Day': 'Total',
-            'Collector': '',
-            'Total Calls': total_calls,  # Total Calls is now after Collector
-            'Total Connected': collector_summary['Total Connected'].sum(),
-            'Total PTP': collector_summary['Total PTP'].sum(),
-            'Total RPC': collector_summary['Total RPC'].sum(),
-            'PTP Amount': collector_summary['PTP Amount'].sum(),
-            'Balance Amount': collector_summary['Balance Amount'].sum(),
+            'Total Agents': total_agents,
+            'Total Connected': total_connected,
             'Talk Time (HH:MM:SS)': total_talk_time_str,  # Add formatted total talk time
         }])
 
-        collector_summary = pd.concat([collector_summary, total_row], ignore_index=True)
+        summary_table = pd.concat([summary_table, total_row], ignore_index=True)
 
-        # Round off numeric columns to 2 decimal places
-        collector_summary[['PTP Amount', 'Balance Amount']] = collector_summary[['PTP Amount', 'Balance Amount']].round(2)
+        # Reorder columns to ensure the desired order
+        column_order = ['Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)']
+        summary_table = summary_table[column_order]
 
-        # Reorder columns to ensure Total Calls is after Collector
-        column_order = ['Day', 'Collector', 'Total Calls', 'Total Connected', 'Total PTP', 'Total RPC', 'PTP Amount', 'Balance Amount', 'Talk Time (HH:MM:SS)']
-        collector_summary = collector_summary[column_order]
-
-        st.write(collector_summary)
+        st.write(summary_table)
