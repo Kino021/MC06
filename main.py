@@ -59,11 +59,11 @@ if uploaded_file is not None:
 
         # Initialize an empty DataFrame for the summary table
         summary_table = pd.DataFrame(columns=[ 
-            'Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
+            'Day', 'Client', 'Campaign', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
         ])
 
-        # Group by 'Date'
-        for date, date_group in filtered_df.groupby(filtered_df['Date'].dt.date):
+        # Group by 'Date' and 'Client', 'Campaign'
+        for (date, client, campaign), date_group in filtered_df.groupby([filtered_df['Date'].dt.date, 'Client', 'Campaign']):
             # Filter rows where 'Call Duration' has a value (non-zero)
             valid_agents = date_group[date_group['Call Duration'].notna() & (date_group['Call Duration'] > 0)]
 
@@ -90,6 +90,8 @@ if uploaded_file is not None:
             # Add the row to the summary table
             summary_table = pd.concat([summary_table, pd.DataFrame([{
                 'Day': date,
+                'Client': client,
+                'Campaign': campaign,
                 'Total Agents': total_agents,
                 'Total Connected': total_connected,
                 'Talk Time (HH:MM:SS)': formatted_talk_time,  # Add formatted talk time
@@ -125,6 +127,8 @@ if uploaded_file is not None:
         # Create a total row with averages
         total_row = pd.DataFrame([{
             'Day': 'Total',
+            'Client': '',  # Leave Client blank for the total row
+            'Campaign': '',  # Leave Campaign blank for the total row
             'Total Agents': '',  # Leave Total Agents blank
             'Total Connected': round(total_connected_ave, 2),  # Use average for Total Connected
             'Talk Time (HH:MM:SS)': str(pd.to_timedelta(rounded_total_talk_time_ave_seconds, unit='s')).split()[2],  # Add average talk time
@@ -136,7 +140,7 @@ if uploaded_file is not None:
         summary_table = pd.concat([summary_table, total_row], ignore_index=True)
 
         # Reorder columns to ensure the desired order
-        column_order = ['Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave']
+        column_order = ['Day', 'Client', 'Campaign', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave']
         summary_table = summary_table[column_order]
 
         # Display the updated summary table
