@@ -82,7 +82,7 @@ if uploaded_file is not None:
                 total_ptp_amount = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['PTP Amount'].sum()
                 total_balance = group[(group['PTP Amount'] != 0)]['Balance'].sum()  # Calculate total balance when PTP Amount exists
                 system_drop = group[(group['Status'].str.contains('DROPPED', na=False)) & (group['Remark By'] == 'SYSTEM')]['Account No.'].count()
-                call_drop_count = group[(group['Status'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
+                call_drop_count = group[(group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
                                         (~group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
                 call_drop_ratio = (system_drop / connected_acc * 100) if connected_acc != 0 else None
 
@@ -133,7 +133,7 @@ if uploaded_file is not None:
                 total_ptp_amount = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['PTP Amount'].sum()
                 total_balance = group[(group['PTP Amount'] != 0)]['Balance'].sum()  # Calculate total balance when PTP Amount exists
                 system_drop = group[(group['Status'].str.contains('DROPPED', na=False)) & (group['Remark By'] == 'SYSTEM')]['Account No.'].count()
-                call_drop_count = group[(group['Status'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
+                call_drop_count = group[(group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
                                         (~group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
                 call_drop_ratio = (system_drop / connected_acc * 100) if connected_acc != 0 else None
 
@@ -184,7 +184,7 @@ if uploaded_file is not None:
                 total_ptp_amount = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['PTP Amount'].sum()
                 total_balance = group[(group['PTP Amount'] != 0)]['Balance'].sum()  # Calculate total balance when PTP Amount exists
                 system_drop = group[(group['Status'].str.contains('DROPPED', na=False)) & (group['Remark By'] == 'SYSTEM')]['Account No.'].count()
-                call_drop_count = group[(group['Status'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
+                call_drop_count = group[(group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
                                         (~group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
                 call_drop_ratio = (call_drop_count / connected_acc * 100) if connected_acc != 0 else None
 
@@ -239,7 +239,7 @@ if uploaded_file is not None:
                     total_balance = date_group[(date_group['PTP Amount'] != 0)]['Balance'].sum()  
                     system_drop = date_group[(date_group['Status'].str.contains('DROPPED', na=False)) & 
                                             (date_group['Remark By'] == 'SYSTEM')]['Account No.'].count()
-                    call_drop_count = date_group[(date_group['Status'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
+                    call_drop_count = date_group[(date_group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
                                                 (~date_group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
                     call_drop_ratio = (system_drop / connected_acc * 100) if connected_acc != 0 else None
 
