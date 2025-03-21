@@ -62,53 +62,34 @@ def load_data(uploaded_file):
 
     return df
 
-# Function to convert seconds to HH:MM:SS format
-def seconds_to_hms(seconds):
-    hours = seconds // 3600  # Integer division to get the hours
-    minutes = (seconds % 3600) // 60  # Get the minutes after extracting the hours
-    seconds = seconds % 60  # Get the remaining seconds
-    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"  # Return as formatted string
+def summary_table(df):
+    # Group by Date
+    summary_df = df.groupby('Date').agg(
+        total_agents=('Remark By', lambda x: x.str.contains("AGENT", case=False, na=False).sum()),
+        total_talk_time=('Talk Time Duration', 'sum'),
+        total_connected_calls=('Call Status', lambda x: x.str.contains("CONNECTED", case=False, na=False).sum())
+    ).reset_index()
 
-uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
+    # Calculate additional columns
+    summary_df['Talktime AVE'] = summary_df['total_talk_time'] / summary_df['total_agents']
+    summary_df['Connected AVE'] = summary_df['total_connected_calls'] / summary_df['total_agents']
 
-if uploaded_file:
+    # Handle cases where total_agents might be zero to avoid division by zero errors
+    summary_df['Talktime AVE'].replace([float('inf'), -float('inf')], 0, inplace=True)
+    summary_df['Connected AVE'].replace([float('inf'), -float('inf')], 0, inplace=True)
+
+    return summary_df
+
+# Upload file
+uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
+
+if uploaded_file is not None:
     df = load_data(uploaded_file)
+
     if df is not None:
-        # Initialize an empty DataFrame for the summary table
-        summary_columns = ['Day', 'Total Collectors', 'Total Connected', 'Total Talk Time']
-        total_summary = pd.DataFrame(columns=summary_columns)
+        # Generate the summary table
+        summary_df = summary_table(df)
 
-        # Group by 'Date' and 'Client' (Campaign), instead of 'Collector'
-        for (date, client), group in df[~df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([df['Date'].dt.date, 'Client']):
-
-            # Calculate the metrics
-            total_collectors = group['Remark By'].nunique()  # Count distinct collectors
-            total_connected = group[group['Call Status'] == 'CONNECTED']['Account No.'].count()
-
-            # Calculate the total talk time (in seconds), ensure it's numeric
-            total_talk_time = pd.to_numeric(group['Talk Time Duration'], errors='coerce').sum()  # Sum of talk time in seconds
-            total_talk_time_hms = seconds_to_hms(total_talk_time)  # Convert to HH:MM:SS format
-
-            # Add the row to the summary
-            total_summary = pd.concat([total_summary, pd.DataFrame([{
-                'Day': date,
-                'Total Collectors': total_collectors,
-                'Total Connected': total_connected,
-                'Total Talk Time': total_talk_time_hms  # Use the HH:MM:SS format here
-            }])], ignore_index=True)
-
-        # Add total summary row
-        total_summary_row = {
-            'Day': 'Total',  # Label for the summary row
-            'Total Collectors': total_summary['Total Collectors'].sum(),
-            'Total Connected': total_summary['Total Connected'].sum(),
-            'Total Talk Time': seconds_to_hms(total_summary['Total Talk Time'].apply(
-                lambda x: sum([int(i.split(':')[0])*3600 + int(i.split(':')[1])*60 + int(i.split(':')[2]) for i in x.split() if isinstance(i, str)]))
-                .sum())  # Convert total talk time to HH:MM:SS format
-        }
-
-        # Add the total summary to the DataFrame
-        total_summary = pd.concat([total_summary, pd.DataFrame([total_summary_row])], ignore_index=True)
-
-        # Show the DataFrame
-        st.dataframe(total_summary)
+        # Display the summary table
+        st.subheader("Summary Table")
+        st.write(summary_df)
