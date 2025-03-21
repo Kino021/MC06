@@ -83,6 +83,10 @@ if uploaded_file is not None:
             connected_ave = total_connected / total_agents if total_agents > 0 else 0
             talk_time_ave = total_talk_time / total_agents if total_agents > 0 else 0
 
+            # Convert Talk Time Ave to HH:MM:SS format
+            rounded_talk_time_ave = round(talk_time_ave * 60)  # Round to nearest second
+            talk_time_ave_str = str(pd.to_timedelta(rounded_talk_time_ave, unit='s')).split()[2]
+
             # Add the row to the summary table
             summary_table = pd.concat([summary_table, pd.DataFrame([{
                 'Day': date,
@@ -90,7 +94,7 @@ if uploaded_file is not None:
                 'Total Connected': total_connected,
                 'Talk Time (HH:MM:SS)': formatted_talk_time,  # Add formatted talk time
                 'Connected Ave': round(connected_ave, 2),  # Round to 2 decimal places
-                'Talk Time Ave': round(talk_time_ave, 2)  # Round to 2 decimal places
+                'Talk Time Ave': talk_time_ave_str  # Add formatted talk time average
             }])], ignore_index=True)
 
         # Calculate and append totals for the summary table
@@ -112,13 +116,17 @@ if uploaded_file is not None:
         connected_ave_total = total_connected / total_agents if total_agents > 0 else 0
         talk_time_ave_total = total_talk_time_minutes / total_agents if total_agents > 0 else 0
 
+        # Convert "Talk Time Ave" for total row to HH:MM:SS format
+        rounded_talk_time_ave_total = round(talk_time_ave_total * 60)
+        total_talk_time_ave_str = str(pd.to_timedelta(rounded_talk_time_ave_total, unit='s')).split()[2]
+
         total_row = pd.DataFrame([{
             'Day': 'Total',
             'Total Agents': total_agents,
             'Total Connected': total_connected,
             'Talk Time (HH:MM:SS)': total_talk_time_str,  # Add formatted total talk time
             'Connected Ave': round(connected_ave_total, 2),  # Round to 2 decimal places
-            'Talk Time Ave': round(talk_time_ave_total, 2)  # Round to 2 decimal places
+            'Talk Time Ave': total_talk_time_ave_str  # Add formatted total talk time average
         }])
 
         summary_table = pd.concat([summary_table, total_row], ignore_index=True)
