@@ -83,7 +83,7 @@ if uploaded_file is not None:
                 ptp_acc = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['Account No.'].nunique()
                 ptp_rate = (ptp_acc / connected * 100) if connected != 0 else None
                 total_ptp_amount = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['PTP Amount'].sum()
-                total_payment = group[(group['Status'].str.contains('CONFIRMED', na=False)) & (group['Claim Paid Amount'] != 0)]['PTP Amount'].sum()
+                total_payment = group[(group['Status'].str.contains('CONFIRMED', na=False)) & (group['Claim Paid Amount'] != 0)]['Claim Paid Amount'].sum()
                 system_drop = group[(group['Status'].str.contains('DROPPED', na=False)) & (group['Remark By'] == 'SYSTEM')]['Account No.'].count()
                 call_drop_count = group[(group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
                                         (~group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
