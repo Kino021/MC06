@@ -68,9 +68,8 @@ if uploaded_file:
     df = load_data(uploaded_file)
     if df is not None:
         # Initialize an empty DataFrame for the summary table by collector
-        collector_summary = pd.DataFrame(columns=[ 
-            'Day', 'Collector', 'Client', 'Manual Accounts', 'Total Manual Calls', 'Predictive Accounts', 'Predictive Dial', 'Total Connected', 'Total PTP', 'Total RPC', 'PTP Amount', 'Balance Amount', 'Total Talk Time'
-        ])
+        summary_columns = ['Day', 'Collector', 'Client', 'Total Connected', 'Total Talk Time']
+        collector_summary = pd.DataFrame(columns=summary_columns)
 
         # Define exclude_users if necessary (or remove if not applicable)
         exclude_users = []  # Add users to exclude if needed (e.g., system users)
@@ -87,43 +86,33 @@ if uploaded_file:
 
             # Calculate the metrics
             total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
-            total_ptp = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['Account No.'].nunique()
-            total_rpc = collector_group[collector_group['Status'].str.contains('RPC', na=False)]['Account No.'].nunique()
-            ptp_amount = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['PTP Amount'].sum()
-
-            # Filter rows where PTP Amount is not zero for balance calculation
-            balance_amount = collector_group[(collector_group['Status'].str.contains('PTP', na=False)) & (collector_group['PTP Amount'] != 0)]['Balance'].sum()
-
-            # Add the total manual calls (filter rows based on Remark Type as "OUTGOING")
-            total_manual_calls = collector_group[collector_group['Remark Type'].str.contains('OUTGOING', case=False, na=False) & 
-                                                ~collector_group['Remark By'].isin(exclude_users)].shape[0]
-
-            # Calculate the unique manual accounts (distinct Account No.)
-            manual_accounts = collector_group[collector_group['Remark Type'].str.contains('OUTGOING', case=False, na=False)]['Account No.'].nunique()
-
-            # Calculate Predictive Dial count for "FOLLOW UP" or "PREDICTIVE" remarks
-            predictive_dial = collector_group[collector_group['Remark Type'].str.contains('FOLLOW UP|PREDICTIVE', case=False, na=False)]['Account No.'].count()
-
-            # Calculate Predictive Accounts (unique Account No. for "FOLLOW UP" or "PREDICTIVE" remarks)
-            predictive_accounts = collector_group[collector_group['Remark Type'].str.contains('FOLLOW UP|PREDICTIVE', case=False, na=False)]['Account No.'].nunique()
 
             # Calculate the total talk time (in seconds), ensure it's numeric
             total_talk_time = pd.to_numeric(collector_group['Talk Time Duration'], errors='coerce').sum()  # Sum of talk time in seconds
             total_talk_time_hms = seconds_to_hms(total_talk_time)  # Convert to HH:MM:SS format
 
-            # Add the row to the summary with Total Manual Calls after Collector
+            # Add the row to the summary
             collector_summary = pd.concat([collector_summary, pd.DataFrame([{
                 'Day': date,
                 'Collector': collector,
                 'Client': client,  # Add the Client (Campaign)
-                'Manual Accounts': manual_accounts,  # Add the Manual Accounts count here
-                'Total Manual Calls': total_manual_calls,  # Add Total Manual Calls here
-                'Predictive Accounts': predictive_accounts,  # Add Predictive Accounts count first
-                'Predictive Dial': predictive_dial,  # Add Predictive Dial count second
                 'Total Connected': total_connected,
-                'Total PTP': total_ptp,
-                'Total RPC': total_rpc,
-                'PTP Amount': ptp_amount,
-                'Balance Amount': balance_amount,
                 'Total Talk Time': total_talk_time_hms  # Use the HH:MM:SS format here
             }])], ignore_index=True)
+
+        # Add total summary row
+        total_summary = {
+            'Day': 'Total',  # Label for the summary row
+            'Collector': '',  # No specific collector for the total row
+            'Client': '',  # No specific client for the total row
+            'Total Connected': collector_summary['Total Connected'].sum(),
+            'Total Talk Time': seconds_to_hms(pd.to_numeric(collector_summary['Total Talk Time'].apply(
+                lambda x: sum([int(i.split(':')[0])*3600 + int(i.split(':')[1])*60 + int(i.split(':')[2]) for i in x.split() if isinstance(i, str)])
+            ).sum()))  # Convert total talk time to HH:MM:SS format
+        }
+
+        # Add the total summary to the DataFrame
+        collector_summary = pd.concat([collector_summary, pd.DataFrame([total_summary])], ignore_index=True)
+
+        # Show the DataFrame
+        st.dataframe(collector_summary)
