@@ -70,6 +70,9 @@ def summary_table(df):
         total_connected_calls=('Call Status', lambda x: x.str.contains("CONNECTED", case=False, na=False).sum())
     ).reset_index()
 
+    # Format the Date column to show only the date (YYYY-MM-DD)
+    summary_df['Date'] = summary_df['Date'].dt.strftime('%Y-%m-%d')
+
     # Calculate additional columns
     summary_df['Talktime AVE'] = summary_df['total_talk_time'] / summary_df['total_agents']
     summary_df['Connected AVE'] = summary_df['total_connected_calls'] / summary_df['total_agents']
