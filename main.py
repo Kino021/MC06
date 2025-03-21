@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Set up the page configuration
-st.set_page_config(layout="wide", page_title="PRODUCTIVITY", page_icon="📊", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="MC06 MONITORING", page_icon="📊", initial_sidebar_state="expanded")
 
 # Apply dark mode styling
 st.markdown(
@@ -21,7 +21,7 @@ st.markdown(
 )
 
 # Title of the app
-st.title('Daily Remark Summary')
+st.title('MC06 MONITORING')
 
 # Data loading function with file upload support
 @st.cache_data
