@@ -71,16 +71,6 @@ if uploaded_file:
         summary_columns = ['Day', 'Total Collectors', 'Total Connected', 'Total Talk Time']
         total_summary = pd.DataFrame(columns=summary_columns)
 
-        # Define exclude_users if necessary (or remove if not applicable)
-        exclude_users = []  # Add users to exclude if needed (e.g., system users)
-
-        # Function to convert seconds to HH:MM:SS format
-        def seconds_to_hms(seconds):
-            hours = seconds // 3600
-            minutes = (seconds % 3600) // 60
-            seconds = seconds % 60
-            return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
-
         # Group by 'Date' and 'Client' (Campaign), instead of 'Collector'
         for (date, client), group in df[~df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([df['Date'].dt.date, 'Client']):
 
@@ -90,14 +80,13 @@ if uploaded_file:
 
             # Calculate the total talk time (in seconds), ensure it's numeric
             total_talk_time = pd.to_numeric(group['Talk Time Duration'], errors='coerce').sum()  # Sum of talk time in seconds
-            total_talk_time_hms = seconds_to_hms(total_talk_time)  # Convert to HH:MM:SS format
 
             # Add the row to the summary
             total_summary = pd.concat([total_summary, pd.DataFrame([{
                 'Day': date,
                 'Total Collectors': total_collectors,
                 'Total Connected': total_connected,
-                'Total Talk Time': total_talk_time_hms  # Use the HH:MM:SS format here
+                'Total Talk Time': total_talk_time  # Keep total talk time in seconds
             }])], ignore_index=True)
 
         # Add total summary row
@@ -105,9 +94,7 @@ if uploaded_file:
             'Day': 'Total',  # Label for the summary row
             'Total Collectors': total_summary['Total Collectors'].sum(),
             'Total Connected': total_summary['Total Connected'].sum(),
-            'Total Talk Time': seconds_to_hms(pd.to_numeric(total_summary['Total Talk Time'].apply(
-                lambda x: sum([int(i.split(':')[0])*3600 + int(i.split(':')[1])*60 + int(i.split(':')[2]) for i in x.split() if isinstance(i, str)])
-            ).sum()))  # Convert total talk time to HH:MM:SS format
+            'Total Talk Time': total_summary['Total Talk Time'].sum()  # Sum the total talk time in seconds
         }
 
         # Add the total summary to the DataFrame
