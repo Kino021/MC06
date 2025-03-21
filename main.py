@@ -114,6 +114,14 @@ if uploaded_file is not None:
         # Averages for "Connected Ave"
         connected_ave_total = summary_table['Connected Ave'].mean()  # Calculate average of "Connected Ave"
 
+        # Calculate average for "Talk Time Ave" (per-agent average across all days)
+        talk_time_ave_total = summary_table['Talk Time Ave'].apply(
+            lambda x: pd.to_timedelta(x).total_seconds() / 60).mean()  # Average of Talk Time Ave in minutes
+
+        # Convert "Talk Time Ave" for total row back to HH:MM:SS format
+        rounded_talk_time_ave_total = round(talk_time_ave_total * 60)
+        total_talk_time_ave_str = str(pd.to_timedelta(rounded_talk_time_ave_total, unit='s')).split()[2]
+
         # Create a total row with averages
         total_row = pd.DataFrame([{
             'Day': 'Total',
@@ -121,7 +129,7 @@ if uploaded_file is not None:
             'Total Connected': round(total_connected_ave, 2),  # Use average for Total Connected
             'Talk Time (HH:MM:SS)': str(pd.to_timedelta(rounded_total_talk_time_ave_seconds, unit='s')).split()[2],  # Add average talk time
             'Connected Ave': round(connected_ave_total, 2),  # Use average for Connected Ave
-            'Talk Time Ave': total_talk_time_ave_str  # Add average talk time per agent
+            'Talk Time Ave': total_talk_time_ave_str  # Add average Talk Time Ave per agent
         }])
 
         # Add the total row to the summary table
