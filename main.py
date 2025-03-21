@@ -64,8 +64,11 @@ if uploaded_file is not None:
 
         # Group by 'Date'
         for date, date_group in filtered_df.groupby(filtered_df['Date'].dt.date):
+            # Filter rows where 'Call Duration' has a value (non-zero)
+            valid_agents = date_group[date_group['Call Duration'].notna() & (date_group['Call Duration'] > 0)]
+
             # Calculate metrics
-            total_agents = date_group['Remark By'].nunique()  # Count unique agents for the day
+            total_agents = valid_agents['Remark By'].nunique()  # Count unique agents for the day where Call Duration > 0
             total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
 
             # Calculate total talk time in minutes
