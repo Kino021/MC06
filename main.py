@@ -1,10 +1,10 @@
-import streamlit as st
 import pandas as pd
-from datetime import datetime
+import streamlit as st
 
-st.set_page_config(layout="wide", page_title="Daily Remark Summary", page_icon="📊", initial_sidebar_state="expanded")
+# Set up the page configuration
+st.set_page_config(layout="wide", page_title="PRODUCTIVITY", page_icon="📊", initial_sidebar_state="expanded")
 
-# Apply dark mode
+# Apply dark mode styling
 st.markdown(
     """
     <style>
@@ -20,79 +20,119 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Title of the app
 st.title('Daily Remark Summary')
 
+# Data loading function with file upload support
 @st.cache_data
 def load_data(uploaded_file):
     df = pd.read_excel(uploaded_file)
-
-    # Check if 'Date' column exists, and if not, print all columns
-    if 'Date' not in df.columns:
-        st.error("The 'Date' column was not found in the file. Please check the column names.")
-        return None
-
-    # Convert 'Date' to datetime if it isn't already
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-    # Exclude rows where 'Debtor' contains 'DEFAULT_LEAD_'
-    df = df[~df['Debtor'].str.contains("DEFAULT_LEAD_", case=False, na=False)]
-
-    # Exclude rows where STATUS contains 'BP' (Broken Promise) or 'ABORT'
-    df = df[~df['Status'].str.contains('ABORT', na=False)]
-
-    # Exclude rows where STATUS contains 'NEW'
-    df = df[~df['Status'].str.contains('NEW', na=False)]
-
-    # Exclude rows where REMARK contains certain keywords or phrases
-    excluded_remarks = [
-        "Broken Promise",
-        "New files imported", 
-        "Updates when case reassign to another collector", 
-        "NDF IN ICS", 
-        "FOR PULL OUT (END OF HANDLING PERIOD)", 
-        "END OF HANDLING PERIOD"
-    ]
-    df = df[~df['Remark'].str.contains('|'.join(excluded_remarks), case=False, na=False)]
-
-    # Exclude rows where "CALL STATUS" contains "OTHERS"
-    df = df[~df['Call Status'].str.contains('OTHERS', case=False, na=False)]
-
-    # Exclude rows where the date is a Sunday (weekday() == 6)
-    df = df[df['Date'].dt.weekday != 6]  # 6 corresponds to Sunday
-
     return df
 
-def summary_table(df):
-    # Group by Date
-    summary_df = df.groupby('Date').agg(
-        total_agents=('Remark By', lambda x: x.nunique()),  # Count unique agents in the 'Remark By' column
-        total_talk_time=('Talk Time Duration', 'sum'),  # Sum the 'Talk Time Duration'
-        total_connected_calls=('Call Status', lambda x: x.str.contains("CONNECTED", case=False, na=False).sum())
-    ).reset_index()
-
-    # Format the Date column to show only the date (YYYY-MM-DD)
-    summary_df['Date'] = summary_df['Date'].dt.strftime('%Y-%m-%d')
-
-    # Calculate additional columns
-    summary_df['Talktime AVE'] = summary_df['total_talk_time'] / summary_df['total_agents']
-    summary_df['Connected AVE'] = summary_df['total_connected_calls'] / summary_df['total_agents']
-
-    # Handle cases where total_agents might be zero to avoid division by zero errors
-    summary_df['Talktime AVE'].replace([float('inf'), -float('inf')], 0, inplace=True)
-    summary_df['Connected AVE'].replace([float('inf'), -float('inf')], 0, inplace=True)
-
-    return summary_df
-
-# Upload file
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx"])
+# File uploader for Excel file
+uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
 
 if uploaded_file is not None:
     df = load_data(uploaded_file)
 
-    if df is not None:
-        # Generate the summary table
-        summary_df = summary_table(df)
+    # Ensure 'Time' column is in datetime format
+    df['Time'] = pd.to_datetime(df['Time'], errors='coerce').dt.time
 
-        # Display the summary table
-        st.subheader("Summary Table")
-        st.write(summary_df)
+    # Filter out specific users based on 'Remark By'
+    exclude_users = ['FGPANGANIBAN', 'KPILUSTRISIMO', 'BLRUIZ', 'MMMEJIA', 'SAHERNANDEZ', 'GPRAMOS',
+                     'JGCELIZ', 'SPMADRID', 'RRCARLIT', 'MEBEJER',
+                     'SEMIJARES', 'GMCARIAN', 'RRRECTO', 'EASORIANO', 'EUGALERA','JATERRADO','LMLABRADOR']
+    df = df[~df['Remark By'].isin(exclude_users)]
+
+    # Create the columns layout
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("## Summary Table by Collector per Day")
+
+        # Add date filter
+        min_date = df['Date'].min().date()
+        max_date = df['Date'].max().date()
+        start_date, end_date = st.date_input("Select date range", [min_date, max_date], min_value=min_date, max_value=max_date)
+
+        filtered_df = df[(df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)]
+
+        # Initialize an empty DataFrame for the summary table by collector
+        collector_summary = pd.DataFrame(columns=[ 
+            'Day', 'Collector', 'Total Calls', 'Total Connected', 'Total PTP', 'Total RPC', 'PTP Amount', 'Balance Amount', 'Talk Time (HH:MM:SS)'
+        ])
+
+        # Group by 'Date' and 'Remark By' (Collector)
+        for (date, collector), collector_group in filtered_df[~filtered_df['Remark By'].str.upper().isin(['SYSTEM'])].groupby([filtered_df['Date'].dt.date, 'Remark By']):
+            # Calculate the metrics
+            total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
+            total_ptp = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['Account No.'].nunique()
+            total_rpc = collector_group[collector_group['Status'].str.contains('RPC', na=False)]['Account No.'].nunique()
+            ptp_amount = collector_group[collector_group['Status'].str.contains('PTP', na=False) & (collector_group['PTP Amount'] != 0)]['PTP Amount'].sum()
+
+            # Filter rows where PTP Amount is not zero for balance calculation
+            balance_amount = collector_group[(collector_group['Status'].str.contains('PTP', na=False)) & (collector_group['PTP Amount'] != 0)]['Balance'].sum()
+
+            # Calculate talk time in minutes
+            total_talk_time = collector_group['Talk Time Duration'].sum() / 60  # Convert from seconds to minutes
+
+            # Round the total talk time to nearest second and convert to HH:MM:SS format
+            rounded_talk_time = round(total_talk_time * 60)  # Round to nearest second
+            talk_time_str = str(pd.to_timedelta(rounded_talk_time, unit='s'))  # Convert to Timedelta and then to string
+            formatted_talk_time = talk_time_str.split()[2]  # Extract the time part from the string (HH:MM:SS)
+
+            # Add the total calls (filter rows based on Remark Type)
+            total_calls = collector_group[
+                collector_group['Remark Type'].str.contains('OUTGOING|FOLLOWUP|PREDICTIVE', case=False, na=False) &
+                ~collector_group['Remark By'].isin(exclude_users)
+            ].shape[0]
+
+            # Add the row to the summary with Total Calls after Collector
+            collector_summary = pd.concat([collector_summary, pd.DataFrame([{
+                'Day': date,
+                'Collector': collector,
+                'Total Calls': total_calls,  # Move Total Calls after Collector
+                'Total Connected': total_connected,
+                'Total PTP': total_ptp,
+                'Total RPC': total_rpc,
+                'PTP Amount': ptp_amount,
+                'Balance Amount': balance_amount,
+                'Talk Time (HH:MM:SS)': formatted_talk_time,  # Add formatted talk time
+            }])], ignore_index=True)
+
+        # Calculate and append totals for the collector summary
+        total_calls = collector_summary['Total Calls'].sum()  # Total Calls count across all collectors
+
+        # Calculate the total talk time for the total row
+        total_talk_time_minutes = collector_summary['Talk Time (HH:MM:SS)'].apply(
+            lambda x: pd.to_timedelta(x).total_seconds() / 60).sum()  # Sum the talk time in minutes
+
+        # Round the total talk time to the nearest second before converting to HH:MM:SS
+        rounded_total_talk_time_minutes = round(total_talk_time_minutes)
+
+        # Format the total talk time as HH:MM:SS
+        rounded_total_talk_time_seconds = round(rounded_total_talk_time_minutes * 60)  # Round to nearest second
+        total_talk_time_str = str(pd.to_timedelta(rounded_total_talk_time_seconds, unit='s')).split()[2]
+
+        total_row = pd.DataFrame([{
+            'Day': 'Total',
+            'Collector': '',
+            'Total Calls': total_calls,  # Total Calls is now after Collector
+            'Total Connected': collector_summary['Total Connected'].sum(),
+            'Total PTP': collector_summary['Total PTP'].sum(),
+            'Total RPC': collector_summary['Total RPC'].sum(),
+            'PTP Amount': collector_summary['PTP Amount'].sum(),
+            'Balance Amount': collector_summary['Balance Amount'].sum(),
+            'Talk Time (HH:MM:SS)': total_talk_time_str,  # Add formatted total talk time
+        }])
+
+        collector_summary = pd.concat([collector_summary, total_row], ignore_index=True)
+
+        # Round off numeric columns to 2 decimal places
+        collector_summary[['PTP Amount', 'Balance Amount']] = collector_summary[['PTP Amount', 'Balance Amount']].round(2)
+
+        # Reorder columns to ensure Total Calls is after Collector
+        column_order = ['Day', 'Collector', 'Total Calls', 'Total Connected', 'Total PTP', 'Total RPC', 'PTP Amount', 'Balance Amount', 'Talk Time (HH:MM:SS)']
+        collector_summary = collector_summary[column_order]
+
+        st.write(collector_summary)
