@@ -65,7 +65,7 @@ def load_data(uploaded_file):
 def summary_table(df):
     # Group by Date
     summary_df = df.groupby('Date').agg(
-        total_agents=('Remark By', lambda x: x.str.contains("AGENT", case=False, na=False).sum()),
+        total_agents=('Remark By', lambda x: x.nunique()),  # Count unique agents in the 'Remark By' column
         total_talk_time=('Talk Time Duration', 'sum'),
         total_connected_calls=('Call Status', lambda x: x.str.contains("CONNECTED", case=False, na=False).sum())
     ).reset_index()
