@@ -98,18 +98,21 @@ if uploaded_file is not None:
             }])], ignore_index=True)
 
         # Calculate and append averages for the summary table
-        total_connected_ave = summary_table['Total Connected'].mean()  # Calculate average of "Total Connected"
-        total_talk_time_ave_minutes = summary_table['Talk Time (HH:MM:SS)'].apply(
-            lambda x: pd.to_timedelta(x).total_seconds() / 60).mean()  # Calculate average talk time in minutes
+        # Avoid including the "Talk Time Ave" in the mean calculation (it should be treated as string)
+        summary_table['Talk Time (Seconds)'] = summary_table['Talk Time (HH:MM:SS)'].apply(
+            lambda x: pd.to_timedelta(x).total_seconds() / 60)  # Convert to minutes for the calculation
+
+        # Calculate average for "Total Connected" and "Talk Time (in minutes)"
+        total_connected_ave = summary_table['Total Connected'].mean()  # Average of Total Connected
+        total_talk_time_ave_minutes = summary_table['Talk Time (Seconds)'].mean()  # Average talk time in minutes
 
         # Format the total talk time average as HH:MM:SS
         rounded_total_talk_time_ave_minutes = round(total_talk_time_ave_minutes)
         rounded_total_talk_time_ave_seconds = round(rounded_total_talk_time_ave_minutes * 60)  # Round to nearest second
         total_talk_time_ave_str = str(pd.to_timedelta(rounded_total_talk_time_ave_seconds, unit='s')).split()[2]
 
-        # Averages for "Connected Ave" and "Talk Time Ave"
+        # Averages for "Connected Ave"
         connected_ave_total = summary_table['Connected Ave'].mean()  # Calculate average of "Connected Ave"
-        talk_time_ave_total = summary_table['Talk Time Ave'].mean()  # Calculate average of "Talk Time Ave"
 
         # Create a total row with averages
         total_row = pd.DataFrame([{
