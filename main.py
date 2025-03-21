@@ -62,6 +62,13 @@ def load_data(uploaded_file):
 
     return df
 
+# Function to convert seconds to HH:MM:SS format
+def seconds_to_hms(seconds):
+    hours = seconds // 3600  # Integer division to get the hours
+    minutes = (seconds % 3600) // 60  # Get the minutes after extracting the hours
+    seconds = seconds % 60  # Get the remaining seconds
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"  # Return as formatted string
+
 uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
 
 if uploaded_file:
@@ -80,13 +87,14 @@ if uploaded_file:
 
             # Calculate the total talk time (in seconds), ensure it's numeric
             total_talk_time = pd.to_numeric(group['Talk Time Duration'], errors='coerce').sum()  # Sum of talk time in seconds
+            total_talk_time_hms = seconds_to_hms(total_talk_time)  # Convert to HH:MM:SS format
 
             # Add the row to the summary
             total_summary = pd.concat([total_summary, pd.DataFrame([{
                 'Day': date,
                 'Total Collectors': total_collectors,
                 'Total Connected': total_connected,
-                'Total Talk Time': total_talk_time  # Keep total talk time in seconds
+                'Total Talk Time': total_talk_time_hms  # Use the HH:MM:SS format here
             }])], ignore_index=True)
 
         # Add total summary row
@@ -94,7 +102,9 @@ if uploaded_file:
             'Day': 'Total',  # Label for the summary row
             'Total Collectors': total_summary['Total Collectors'].sum(),
             'Total Connected': total_summary['Total Connected'].sum(),
-            'Total Talk Time': total_summary['Total Talk Time'].sum()  # Sum the total talk time in seconds
+            'Total Talk Time': seconds_to_hms(total_summary['Total Talk Time'].apply(
+                lambda x: sum([int(i.split(':')[0])*3600 + int(i.split(':')[1])*60 + int(i.split(':')[2]) for i in x.split() if isinstance(i, str)]))
+                .sum())  # Convert total talk time to HH:MM:SS format
         }
 
         # Add the total summary to the DataFrame
