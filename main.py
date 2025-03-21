@@ -97,42 +97,36 @@ if uploaded_file is not None:
                 'Talk Time Ave': talk_time_ave_str  # Add formatted talk time average
             }])], ignore_index=True)
 
-        # Calculate and append totals for the summary table
-        total_agents = summary_table['Total Agents'].sum()  # Total Agents count across all days
-        total_connected = summary_table['Total Connected'].sum()  # Total Connected count across all days
+        # Calculate and append averages for the summary table
+        total_connected_ave = summary_table['Total Connected'].mean()  # Calculate average of "Total Connected"
+        total_talk_time_ave_minutes = summary_table['Talk Time (HH:MM:SS)'].apply(
+            lambda x: pd.to_timedelta(x).total_seconds() / 60).mean()  # Calculate average talk time in minutes
 
-        # Calculate the total talk time for the total row
-        total_talk_time_minutes = summary_table['Talk Time (HH:MM:SS)'].apply(
-            lambda x: pd.to_timedelta(x).total_seconds() / 60).sum()  # Sum the talk time in minutes
+        # Format the total talk time average as HH:MM:SS
+        rounded_total_talk_time_ave_minutes = round(total_talk_time_ave_minutes)
+        rounded_total_talk_time_ave_seconds = round(rounded_total_talk_time_ave_minutes * 60)  # Round to nearest second
+        total_talk_time_ave_str = str(pd.to_timedelta(rounded_total_talk_time_ave_seconds, unit='s')).split()[2]
 
-        # Round the total talk time to the nearest second before converting to HH:MM:SS
-        rounded_total_talk_time_minutes = round(total_talk_time_minutes)
+        # Averages for "Connected Ave" and "Talk Time Ave"
+        connected_ave_total = summary_table['Connected Ave'].mean()  # Calculate average of "Connected Ave"
+        talk_time_ave_total = summary_table['Talk Time Ave'].mean()  # Calculate average of "Talk Time Ave"
 
-        # Format the total talk time as HH:MM:SS
-        rounded_total_talk_time_seconds = round(rounded_total_talk_time_minutes * 60)  # Round to nearest second
-        total_talk_time_str = str(pd.to_timedelta(rounded_total_talk_time_seconds, unit='s')).split()[2]
-
-        # Calculate "Connected Ave" and "Talk Time Ave" for the totals
-        connected_ave_total = total_connected / total_agents if total_agents > 0 else 0
-        talk_time_ave_total = total_talk_time_minutes / total_agents if total_agents > 0 else 0
-
-        # Convert "Talk Time Ave" for total row to HH:MM:SS format
-        rounded_talk_time_ave_total = round(talk_time_ave_total * 60)
-        total_talk_time_ave_str = str(pd.to_timedelta(rounded_talk_time_ave_total, unit='s')).split()[2]
-
+        # Create a total row with averages
         total_row = pd.DataFrame([{
             'Day': 'Total',
-            'Total Agents': total_agents,
-            'Total Connected': total_connected,
-            'Talk Time (HH:MM:SS)': total_talk_time_str,  # Add formatted total talk time
-            'Connected Ave': round(connected_ave_total, 2),  # Round to 2 decimal places
-            'Talk Time Ave': total_talk_time_ave_str  # Add formatted total talk time average
+            'Total Agents': '',  # Leave Total Agents blank
+            'Total Connected': round(total_connected_ave, 2),  # Use average for Total Connected
+            'Talk Time (HH:MM:SS)': str(pd.to_timedelta(rounded_total_talk_time_ave_seconds, unit='s')).split()[2],  # Add average talk time
+            'Connected Ave': round(connected_ave_total, 2),  # Use average for Connected Ave
+            'Talk Time Ave': total_talk_time_ave_str  # Add average talk time per agent
         }])
 
+        # Add the total row to the summary table
         summary_table = pd.concat([summary_table, total_row], ignore_index=True)
 
         # Reorder columns to ensure the desired order
         column_order = ['Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave']
         summary_table = summary_table[column_order]
 
+        # Display the updated summary table
         st.write(summary_table)
