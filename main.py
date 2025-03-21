@@ -143,3 +143,50 @@ if uploaded_file is not None:
 
         # Display the updated summary table
         st.write(summary_table)
+
+    # Now let's create the overall summary table per date
+    with col2:
+        st.write("## Overall Summary per Date")
+
+        # Create a summary table grouped by 'Date'
+        overall_summary = pd.DataFrame(columns=[ 
+            'Day', 'Total Agents', 'Total Connected', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
+        ])
+
+        # Group by 'Date'
+        for date, date_group in filtered_df.groupby(filtered_df['Date'].dt.date):
+            # Filter rows where 'Call Duration' has a value (non-zero)
+            valid_agents = date_group[date_group['Call Duration'].notna() & (date_group['Call Duration'] > 0)]
+
+            # Calculate metrics
+            total_agents = valid_agents['Remark By'].nunique()  # Count unique agents for the day where Call Duration > 0
+            total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
+
+            # Calculate total talk time in minutes
+            total_talk_time = date_group['Talk Time Duration'].sum() / 60  # Convert from seconds to minutes
+
+            # Round the total talk time to nearest second and convert to HH:MM:SS format
+            rounded_talk_time = round(total_talk_time * 60)  # Round to nearest second
+            talk_time_str = str(pd.to_timedelta(rounded_talk_time, unit='s'))  # Convert to Timedelta and then to string
+            formatted_talk_time = talk_time_str.split()[2]  # Extract the time part from the string (HH:MM:SS)
+
+            # Calculate "Connected Ave" and "Talk Time Ave"
+            connected_ave = total_connected / total_agents if total_agents > 0 else 0
+            talk_time_ave = total_talk_time / total_agents if total_agents > 0 else 0
+
+            # Convert Talk Time Ave to HH:MM:SS format
+            rounded_talk_time_ave = round(talk_time_ave * 60)  # Round to nearest second
+            talk_time_ave_str = str(pd.to_timedelta(rounded_talk_time_ave, unit='s')).split()[2]
+
+            # Add the row to the overall summary table
+            overall_summary = pd.concat([overall_summary, pd.DataFrame([{
+                'Day': date,
+                'Total Agents': total_agents,
+                'Total Connected': total_connected,
+                'Talk Time (HH:MM:SS)': formatted_talk_time,  # Add formatted talk time
+                'Connected Ave': round(connected_ave, 2),  # Round to 2 decimal places
+                'Talk Time Ave': talk_time_ave_str  # Add formatted talk time average
+            }])], ignore_index=True)
+
+        # Display the overall summary table per date
+        st.write(overall_summary)
