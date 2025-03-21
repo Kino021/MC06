@@ -65,12 +65,12 @@ if uploaded_file is not None:
     if df.empty:
         st.warning("No valid data available after filtering.")
     else:
-        # Overall Combined Summary Table
+ # Overall Combined Summary Table
         def calculate_combined_summary(df):
             summary_table = pd.DataFrame(columns=[ 
                 'Day', 'ACCOUNTS', 'TOTAL DIALED', 'PENETRATION RATE (%)', 'CONNECTED #', 
                 'CONNECTED RATE (%)', 'CONNECTED ACC', 'PTP ACC', 'PTP RATE', 'TOTAL PTP AMOUNT', 
-                'TOTAL PAYMENTS', 'CALL DROP #', 'SYSTEM DROP', 'CALL DROP RATIO #', 
+                'TOTAL BALANCE', 'CALL DROP #', 'SYSTEM DROP', 'CALL DROP RATIO #'
             ]) 
 
             for date, group in df.groupby(df['Date'].dt.date):
@@ -83,9 +83,9 @@ if uploaded_file is not None:
                 ptp_acc = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['Account No.'].nunique()
                 ptp_rate = (ptp_acc / connected * 100) if connected != 0 else None
                 total_ptp_amount = group[(group['Status'].str.contains('PTP', na=False)) & (group['PTP Amount'] != 0)]['PTP Amount'].sum()
-                total_payments = group[(group['Status'].str.contains('CONFIRMED', na=False)) & (group['Claim Paid Amount'] != 0)]['Claim Paid Amount'].sum()
+                total_balance = group[(group['PTP Amount'] != 0)]['Balance'].sum()  # Calculate total balance when PTP Amount exists
                 system_drop = group[(group['Status'].str.contains('DROPPED', na=False)) & (group['Remark By'] == 'SYSTEM')]['Account No.'].count()
-                call_drop_count = group[(group['Status'].str.contains('NEGATIVE VIA CALL - DROPPED THE CALL', na=False)) & 
+                call_drop_count = group[(group['Status'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
                                         (~group['Remark By'].str.upper().isin(['SYSTEM']))]['Account No.'].count()
                 call_drop_ratio = (system_drop / connected_acc * 100) if connected_acc != 0 else None
 
@@ -99,13 +99,13 @@ if uploaded_file is not None:
                     'CONNECTED ACC': connected_acc,
                     'PTP ACC': ptp_acc,
                     'PTP RATE': f"{round(ptp_rate)}%" if ptp_rate is not None else None,
-                    'TOTAL_PAYMENT': total_ptp_amount,
-                    'TOTAL PAYMENTS': total_payments,
+                    'TOTAL PTP AMOUNT': total_ptp_amount,
+                    'TOTAL BALANCE': total_balance,
                     'CALL DROP #': call_drop_count,
                     'SYSTEM DROP': system_drop,
                     'CALL DROP RATIO #': f"{round(call_drop_ratio)}%" if call_drop_ratio is not None else None,
                 }])], ignore_index=True)
-
+                
             return summary_table
 
         # Display Combined Summary Table
@@ -118,7 +118,7 @@ if uploaded_file is not None:
             summary_table = pd.DataFrame(columns=[ 
                 'Day', 'ACCOUNTS', 'TOTAL DIALED', 'PENETRATION RATE (%)', 'CONNECTED #', 
                 'CONNECTED RATE (%)', 'CONNECTED ACC', 'PTP ACC', 'PTP RATE', 'TOTAL PTP AMOUNT', 
-                'TOTAL BALANCE', 'CALL DROP #', 'SYSTEM DROP', 'CALL DROP RATIO #'
+                'TOTAL BA   LANCE', 'CALL DROP #', 'SYSTEM DROP', 'CALL DROP RATIO #'
             ]) 
 
             # Filter the dataframe to include only 'Follow Up' and 'Predictive' Remark Types
