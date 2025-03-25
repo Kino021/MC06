@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 import math
-import base64
 from io import BytesIO
 
 # Set up the page configuration
@@ -16,19 +15,70 @@ def load_data(uploaded_file):
     df = pd.read_excel(uploaded_file)
     return df
 
-# Function to create a single Excel file with multiple sheets
-def get_combined_excel_download_link(summary_dfs, overall_summary_df, filename):
+# Function to create a single Excel file with multiple sheets, auto-fit columns, borders, middle alignment, and red headers
+def create_combined_excel_file(summary_dfs, overall_summary_df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Define formats
+        workbook = writer.book
+        header_format = workbook.add_format({
+            'bg_color': '#FF0000',  # Red background
+            'font_color': '#FFFFFF',  # White text
+            'bold': True,
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter'
+        })
+        cell_format = workbook.add_format({
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter'
+        })
+
         # Write each client's Summary Table by Day to a separate sheet
         for client, summary_df in summary_dfs.items():
-            summary_df.to_excel(writer, sheet_name=f"Summary_{client[:31]}", index=False)  # Sheet names limited to 31 chars
+            summary_df.to_excel(writer, sheet_name=f"Summary_{client[:31]}", index=False, startrow=1, header=False)
+            worksheet = writer.sheets[f"Summary_{client[:31]}"]
+
+            # Write headers with red background
+            for col_idx, col in enumerate(summary_df.columns):
+                worksheet.write(0, col_idx, col, header_format)
+
+            # Apply cell format to data and auto-fit columns
+            for row_idx in range(len(summary_df)):
+                for col_idx, value in enumerate(summary_df.iloc[row_idx]):
+                    worksheet.write(row_idx + 1, col_idx, value, cell_format)
+
+            # Auto-fit columns
+            for col_idx, col in enumerate(summary_df.columns):
+                max_length = max(
+                    summary_df[col].astype(str).map(len).max(),
+                    len(str(col))
+                )
+                worksheet.set_column(col_idx, col_idx, max_length + 2)
+
         # Write Overall Summary to a separate sheet
-        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False)
-    excel_data = output.getvalue()
-    b64 = base64.b64encode(excel_data).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">Download All Results as Excel</a>'
-    return href
+        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=1, header=False)
+        worksheet = writer.sheets["Overall_Summary"]
+
+        # Write headers with red background
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            worksheet.write(0, col_idx, col, header_format)
+
+        # Apply cell format to data and auto-fit columns
+        for row_idx in range(len(overall_summary_df)):
+            for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
+                worksheet.write(row_idx + 1, col_idx, value, cell_format)
+
+        # Auto-fit columns
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            max_length = max(
+                overall_summary_df[col].astype(str).map(len).max(),
+                len(str(col))
+            )
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
+
+    return output.getvalue()
 
 # File uploader for Excel file
 uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
@@ -125,7 +175,6 @@ if uploaded_file is not None:
                     'Talk Time (HH:MM:SS)', 'Positive Skip Ave', 'Negative Skip Ave', 'Total Skip Ave', 'Connected Ave', 'Talk Time Ave'
                 ])
                 st.dataframe(summary_df)
-                # Store the DataFrame for this client
                 summary_dfs[client] = summary_df
 
     with col2:
@@ -178,5 +227,13 @@ if uploaded_file is not None:
             ])
             st.dataframe(overall_summary_df)
 
-        # Add a single download button for all results
-        st.markdown(get_combined_excel_download_link(summary_dfs, overall_summary_df, "MC06_Monitoring_Results.xlsx"), unsafe_allow_html=True)
+            # Generate the Excel file content with formatted tables
+            excel_data = create_combined_excel_file(summary_dfs, overall_summary_df)
+
+            # Use st.download_button for reliable download
+            st.download_button(
+                label="Download All Results",
+                data=excel_data,
+                file_name="MC06_Monitoring_Results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
