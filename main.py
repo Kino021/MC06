@@ -15,7 +15,7 @@ def load_data(uploaded_file):
     df = pd.read_excel(uploaded_file)
     return df
 
-# Function to create a single Excel file with multiple sheets, auto-fit columns, borders, middle alignment, and red headers
+# Function to create a single Excel file with formatted dates, borders, middle alignment, and red headers
 def create_combined_excel_file(summary_dfs, overall_summary_df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -34,6 +34,12 @@ def create_combined_excel_file(summary_dfs, overall_summary_df):
             'align': 'center',
             'valign': 'vcenter'
         })
+        date_format = workbook.add_format({
+            'num_format': 'mm/dd/yyyy',  # Date format for "Day" column
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter'
+        })
 
         # Write each client's Summary Table by Day to a separate sheet
         for client, summary_df in summary_dfs.items():
@@ -44,10 +50,17 @@ def create_combined_excel_file(summary_dfs, overall_summary_df):
             for col_idx, col in enumerate(summary_df.columns):
                 worksheet.write(0, col_idx, col, header_format)
 
-            # Apply cell format to data and auto-fit columns
+            # Apply cell format to data, using date format for "Day" column (column 0)
             for row_idx in range(len(summary_df)):
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
-                    worksheet.write(row_idx + 1, col_idx, value, cell_format)
+                    if col_idx == 0:  # "Day" column
+                        # Convert to datetime if not already, then write with date format
+                        if pd.isna(value):
+                            worksheet.write(row_idx + 1, col_idx, value, date_format)
+                        else:
+                            worksheet.write_datetime(row_idx + 1, col_idx, pd.to_datetime(value), date_format)
+                    else:
+                        worksheet.write(row_idx + 1, col_idx, value, cell_format)
 
             # Auto-fit columns
             for col_idx, col in enumerate(summary_df.columns):
@@ -65,7 +78,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df):
         for col_idx, col in enumerate(overall_summary_df.columns):
             worksheet.write(0, col_idx, col, header_format)
 
-        # Apply cell format to data and auto-fit columns
+        # Apply cell format to data, keeping "Date Range" as text
         for row_idx in range(len(overall_summary_df)):
             for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
                 worksheet.write(row_idx + 1, col_idx, value, cell_format)
