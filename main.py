@@ -21,13 +21,13 @@ if uploaded_file is not None:
 
     # Ensure 'Time' column is in datetime format
     df['Time'] = pd.to_datetime(df['Time'], errors='coerce').dt.time
-    
+
     # Ensure 'Date' column is in datetime format
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    
+
     # Ensure 'Talk Time Duration' is numeric
     df['Talk Time Duration'] = pd.to_numeric(df['Talk Time Duration'], errors='coerce').fillna(0)
-    
+
     # Define Positive Skip conditions (count if Status CONTAINS these keywords)
     positive_skip_keywords = [
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE FACEBOOK",
@@ -78,9 +78,11 @@ if uploaded_file is not None:
 
             # Calculate average talk time per agent
             talk_time_ave_seconds = total_talk_time_seconds / total_agents if total_agents > 0 else 0
+
+            # Convert average talk time to HH:MM:SS format
             talk_time_ave_str = str(pd.to_timedelta(round(talk_time_ave_seconds), unit='s'))
 
-            # Count Positive Skip
+            # Count Positive Skip (if Status contains any of the specified keywords)
             positive_skip_count = sum(date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))
 
             # Count Negative Skip
@@ -101,21 +103,24 @@ if uploaded_file is not None:
         st.write(summary_df)
 
     with col2:
-        st.write("## Overall Summary per Date and Client")
+        st.write("## Overall Summary per Date")
 
         overall_summary = []
 
-        # Group by 'Date' and 'Client'
-        for (date, client), date_group in filtered_df.groupby([filtered_df['Date'].dt.date, 'Client']):
+        for date, date_group in filtered_df.groupby(filtered_df['Date'].dt.date):
             total_agents = date_group['Remark By'].nunique()
             total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
 
             # Sum Talk Time Duration in seconds
             total_talk_time_seconds = date_group['Talk Time Duration'].sum()
+
+            # Convert total talk time to HH:MM:SS format
             formatted_talk_time = str(pd.to_timedelta(total_talk_time_seconds, unit='s'))
 
             # Calculate average talk time per agent
             talk_time_ave_seconds = total_talk_time_seconds / total_agents if total_agents > 0 else 0
+
+            # Convert average talk time to HH:MM:SS format
             talk_time_ave_str = str(pd.to_timedelta(round(talk_time_ave_seconds), unit='s'))
 
             # Count Positive Skip
@@ -129,11 +134,11 @@ if uploaded_file is not None:
 
             # Append results to the overall summary
             overall_summary.append([
-                date, client, total_agents, total_connected, positive_skip_count, negative_skip_count, formatted_talk_time, connected_ave, talk_time_ave_str
+                date, total_agents, total_connected, positive_skip_count, negative_skip_count, formatted_talk_time, connected_ave, talk_time_ave_str
             ])
 
         # Convert to DataFrame and display
         overall_summary_df = pd.DataFrame(overall_summary, columns=[
-            'Day', 'Client', 'Total Agents', 'Total Connected', 'Positive Skip', 'Negative Skip', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
+            'Day', 'Total Agents', 'Total Connected', 'Positive Skip', 'Negative Skip', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
         ])
         st.write(overall_summary_df)
