@@ -18,7 +18,7 @@ def load_data(uploaded_file):
 
 uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
 
-def to_excel(df_dict):
+def to_excel(df):
     output = BytesIO()
     with ExcelWriter(output, engine='xlsxwriter', date_format='yyyy-mm-dd') as writer:
         workbook = writer.book
@@ -67,43 +67,42 @@ def to_excel(df_dict):
             'num_format': 'hh:mm:ss'
         })
         
-        for sheet_name, df in df_dict.items():
-            # Convert percentage strings back to floats for Excel
-            df_for_excel = df.copy()
-            for col in ['PENETRATION RATE (%)', 'CONNECTED RATE (%)', 'PTP RATE', 'CALL DROP RATIO #']:
-                df_for_excel[col] = df_for_excel[col].str.rstrip('%').astype(float)
-            
-            df_for_excel.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1)
-            worksheet = writer.sheets[sheet_name]
-            
-            worksheet.merge_range('A1:' + chr(65 + len(df.columns) - 1) + '1', sheet_name, title_format)
-            
+        # Convert percentage strings back to floats for Excel
+        df_for_excel = df.copy()
+        for col in ['PENETRATION RATE (%)', 'CONNECTED RATE (%)', 'PTP RATE', 'CALL DROP RATIO #']:
+            df_for_excel[col] = df_for_excel[col].str.rstrip('%').astype(float)
+        
+        df_for_excel.to_excel(writer, sheet_name="Summary", index=False, startrow=1)
+        worksheet = writer.sheets["Summary"]
+        
+        worksheet.merge_range('A1:' + chr(65 + len(df.columns) - 1) + '1', "Daily Remark Summary", title_format)
+        
+        for col_num, col_name in enumerate(df_for_excel.columns):
+            worksheet.write(1, col_num, col_name, header_format)
+        
+        for row_num in range(2, len(df_for_excel) + 2):
             for col_num, col_name in enumerate(df_for_excel.columns):
-                worksheet.write(1, col_num, col_name, header_format)
-            
-            for row_num in range(2, len(df_for_excel) + 2):
-                for col_num, col_name in enumerate(df_for_excel.columns):
-                    value = df_for_excel.iloc[row_num - 2, col_num]
-                    if col_name == 'DATE':
-                        if isinstance(value, (pd.Timestamp, datetime.date)):
-                            worksheet.write_datetime(row_num, col_num, value, date_format)
-                        else:
-                            worksheet.write(row_num, col_num, value, date_format)
-                    elif col_name in ['TOTAL PTP AMOUNT', 'TOTAL BALANCE']:
-                        worksheet.write(row_num, col_num, value, comma_format)
-                    elif col_name in ['PENETRATION RATE (%)', 'CONNECTED RATE (%)', 'PTP RATE', 'CALL DROP RATIO #']:
-                        worksheet.write(row_num, col_num, value / 100, percent_format)
-                    elif col_name in ['TOTAL TALK TIME', 'TALK TIME AVE', 'POSITIVE SKIP TALK TIME', 'NEGATIVE SKIP TALK TIME']:
-                        worksheet.write(row_num, col_num, value, time_format)
+                value = df_for_excel.iloc[row_num - 2, col_num]
+                if col_name == 'DATE':
+                    if isinstance(value, (pd.Timestamp, datetime.date)):
+                        worksheet.write_datetime(row_num, col_num, value, date_format)
                     else:
-                        worksheet.write(row_num, col_num, value, center_format)
-            
-            for col_num, col_name in enumerate(df_for_excel.columns):
-                max_len = max(
-                    df_for_excel[col_name].astype(str).str.len().max(),
-                    len(col_name)
-                ) + 2
-                worksheet.set_column(col_num, col_num, max_len)
+                        worksheet.write(row_num, col_num, value, date_format)
+                elif col_name in ['TOTAL PTP AMOUNT', 'TOTAL BALANCE']:
+                    worksheet.write(row_num, col_num, value, comma_format)
+                elif col_name in ['PENETRATION RATE (%)', 'CONNECTED RATE (%)', 'PTP RATE', 'CALL DROP RATIO #']:
+                    worksheet.write(row_num, col_num, value / 100, percent_format)
+                elif col_name in ['TOTAL TALK TIME', 'TALK TIME AVE', 'POSITIVE SKIP TALK TIME', 'NEGATIVE SKIP TALK TIME']:
+                    worksheet.write(row_num, col_num, value, time_format)
+                else:
+                    worksheet.write(row_num, col_num, value, center_format)
+        
+        for col_num, col_name in enumerate(df_for_excel.columns):
+            max_len = max(
+                df_for_excel[col_name].astype(str).str.len().max(),
+                len(col_name)
+            ) + 2
+            worksheet.set_column(col_num, col_num, max_len)
 
     return output.getvalue()
 
@@ -194,7 +193,7 @@ if uploaded_file is not None:
         secs = seconds % 60
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
-    def calculate_summary(df, remark_types, manual_correction=False):
+    def calculate_summary(df):
         summary_columns = [
             'DATE', 'CLIENT', 'COLLECTORS', 'ACCOUNTS', 'TOTAL DIALED', 'PENETRATION RATE (%)', 'CONNECTED #', 
             'CONNECTED RATE (%)', 'CONNECTED ACC', 'TOTAL TALK TIME', 'TALK TIME AVE', 'PTP ACC', 'PTP RATE', 
@@ -204,10 +203,9 @@ if uploaded_file is not None:
         
         summary_table = pd.DataFrame(columns=summary_columns)
         
-        df_filtered = df[df['REMARK TYPE'].isin(remark_types)].copy()
-        df_filtered['DATE'] = df_filtered['DATE'].dt.date  
+        df['DATE'] = df['DATE'].dt.date  
 
-        for (date, client), group in df_filtered.groupby(['DATE', 'CLIENT']):
+        for (date, client), group in df.groupby(['DATE', 'CLIENT']):
             accounts = group['ACCOUNT NO.'].nunique()
             total_dialed = group['ACCOUNT NO.'].count()
             connected = group[group['CALL STATUS'] == 'CONNECTED']['ACCOUNT NO.'].nunique()
@@ -224,11 +222,7 @@ if uploaded_file is not None:
             system_drop = group[(group['STATUS'].str.contains('DROPPED', na=False)) & (group['REMARK BY'] == 'SYSTEM')]['ACCOUNT NO.'].count()
             call_drop_count = group[(group['STATUS'].str.contains('NEGATIVE CALLOUTS - DROP CALL', na=False)) & 
                                   (~group['REMARK BY'].str.upper().isin(['SYSTEM']))]['ACCOUNT NO.'].count()
-            
-            if manual_correction:
-                call_drop_ratio = (call_drop_count / connected_acc * 100) if connected_acc != 0 else 0
-            else:
-                call_drop_ratio = (system_drop / connected_acc * 100) if connected_acc != 0 else 0
+            call_drop_ratio = (call_drop_count / connected_acc * 100) if connected_acc != 0 else 0
             call_drop_ratio_formatted = f"{call_drop_ratio:.2f}%"
 
             collectors = group[group['CALL DURATION'].notna()]['REMARK BY'].nunique()
@@ -277,28 +271,14 @@ if uploaded_file is not None:
         
         return summary_table.sort_values(by=['DATE'])
 
-    combined_summary = calculate_summary(df, ['Predictive', 'Follow Up', 'Outgoing'])
-    predictive_summary = calculate_summary(df, ['Predictive', 'Follow Up'])
-    manual_summary = calculate_summary(df, ['Outgoing'], manual_correction=True)
+    summary = calculate_summary(df)
 
-    st.write("## Overall Combined Summary Table")
-    st.write(combined_summary)
-
-    st.write("## Overall Predictive Summary Table")
-    st.write(predictive_summary)
-
-    st.write("## Overall Manual Summary Table")
-    st.write(manual_summary)
-
-    excel_data = {
-        'Combined Summary': combined_summary,
-        'Predictive Summary': predictive_summary,
-        'Manual Summary': manual_summary,
-    }
+    st.write("## Daily Remark Summary Table")
+    st.write(summary)
 
     st.download_button(
-        label="Download All Summaries as Excel",
-        data=to_excel(excel_data),
+        label="Download Summary as Excel",
+        data=to_excel(summary),
         file_name=f"Daily_Remark_Summary_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
