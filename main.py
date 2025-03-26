@@ -217,7 +217,6 @@ if uploaded_file is not None:
                                                         (date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Account No.'].count()
                     negative_skip_connected = date_group[(date_group['Call Status'] == 'CONNECTED') & 
                                                         (date_group['Status'].isin(negative_skip_status))]['Account No.'].count()
-                    # New columns: Positive Skip Talk Time and Negative Skip Talk Time
                     positive_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
                                                                 (date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Talk Time Duration'].sum()
                     negative_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
@@ -270,7 +269,6 @@ if uploaded_file is not None:
                                                       (client_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Account No.'].count()
                 negative_skip_connected = client_group[(client_group['Call Status'] == 'CONNECTED') & 
                                                       (client_group['Status'].isin(negative_skip_status))]['Account No.'].count()
-                # New columns: Positive Skip Talk Time and Negative Skip Talk Time
                 positive_skip_talk_time_seconds = client_group[(client_group['Call Status'] == 'CONNECTED') & 
                                                               (client_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Talk Time Duration'].sum()
                 negative_skip_talk_time_seconds = client_group[(client_group['Call Status'] == 'CONNECTED') & 
@@ -285,7 +283,6 @@ if uploaded_file is not None:
                     'Remark By': lambda x: x[(client_group['Call Duration'].notna()) & 
                                             (client_group['Call Duration'] > 0) & 
                                             (client_group['Remark By'].str.lower() != "system")].nunique(),
-                    'Talk Time Duration': 'sum',
                     'Account No.': lambda x: x[client_group['Call Status'] == 'CONNECTED'].count(),
                     'Status': [
                         lambda x: sum(x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False)),
@@ -303,15 +300,16 @@ if uploaded_file is not None:
                                    (client_group['Status'].isin(negative_skip_status))].sum()
                     ]
                 })
-                daily_data.columns = ['Collectors', 'Talk Time', 'Total Connected', 'Positive Skip', 'Negative Skip', 
-                                     'Positive Skip Connected', 'Negative Skip Connected', 'Total Talk Time', 
-                                     'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds']
+                # Flatten the multi-level column names
+                daily_data.columns = ['Collectors', 'Total Connected', 
+                                     'Positive Skip', 'Negative Skip', 'Positive Skip Connected', 'Negative Skip Connected',
+                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds']
                 daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip']
                 daily_data['Positive Skip Ave'] = daily_data['Positive Skip'] / daily_data['Collectors']
                 daily_data['Negative Skip Ave'] = daily_data['Negative Skip'] / daily_data['Collectors']
                 daily_data['Total Skip Ave'] = daily_data['Total Skip'] / daily_data['Collectors']
                 daily_data['Connected Ave'] = daily_data['Total Connected'] / daily_data['Collectors']
-                daily_data['Talk Time Ave Seconds'] = daily_data['Total Talk Time'] / daily_data['Collectors']
+                daily_data['Talk Time Ave Seconds'] = daily_data['Talk Time'] / daily_data['Collectors']
                 positive_skip_ave = round(daily_data['Positive Skip Ave'].mean(), 2) if not daily_data.empty else 0
                 negative_skip_ave = round(daily_data['Negative Skip Ave'].mean(), 2) if not daily_data.empty else 0
                 total_skip_ave = round(daily_data['Total Skip Ave'].mean(), 2) if not daily_data.empty else 0
