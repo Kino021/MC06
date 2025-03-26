@@ -169,8 +169,6 @@ if uploaded_file is not None:
         "LETTER RECEIVED - THRU OTHER SOCMED",
         "LS VIA SOCMED - T6 NO RESPONSE SMS AND EMAIL",
         "NEG VIA SOCMED - INSTAGRAM",
-
-
     ]
 
     # Dictionary to store summary DataFrames for each client
@@ -205,16 +203,23 @@ if uploaded_file is not None:
                     positive_skip_count = sum(date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))
                     negative_skip_count = date_group[date_group['Status'].isin(negative_skip_status)].shape[0]
                     total_skip = positive_skip_count + negative_skip_count
+                    # New columns: Positive Skip Connected and Negative Skip Connected
+                    positive_skip_connected = date_group[(date_group['Call Status'] == 'CONNECTED') & 
+                                                        (date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Account No.'].count()
+                    negative_skip_connected = date_group[(date_group['Call Status'] == 'CONNECTED') & 
+                                                        (date_group['Status'].isin(negative_skip_status))]['Account No.'].count()
                     positive_skip_ave = round(positive_skip_count / total_agents, 2) if total_agents > 0 else 0
                     negative_skip_ave = round(negative_skip_count / total_agents, 2) if total_agents > 0 else 0
                     total_skip_ave = round(total_skip / total_agents, 2) if total_agents > 0 else 0
                     connected_ave = round(total_connected / total_agents, 2) if total_agents > 0 else 0
                     summary_table.append([
                         date, total_agents, total_connected, positive_skip_count, negative_skip_count, total_skip,
+                        positive_skip_connected, negative_skip_connected,  # Added new columns here
                         formatted_talk_time, positive_skip_ave, negative_skip_ave, total_skip_ave, connected_ave, talk_time_ave_str
                     ])
                 summary_df = pd.DataFrame(summary_table, columns=[
                     'Day', 'Collectors', 'Total Connected', 'Positive Skip', 'Negative Skip', 'Total Skip',
+                    'Positive Skip Connected', 'Negative Skip Connected',  # Added new columns here
                     'Talk Time (HH:MM:SS)', 'Positive Skip Ave', 'Negative Skip Ave', 'Total Skip Ave', 'Connected Ave', 'Talk Time Ave'
                 ])
                 st.dataframe(summary_df)
@@ -241,6 +246,11 @@ if uploaded_file is not None:
                 positive_skip_count = sum(client_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))
                 negative_skip_count = client_group[client_group['Status'].isin(negative_skip_status)].shape[0]
                 total_skip = positive_skip_count + negative_skip_count
+                # New columns: Positive Skip Connected and Negative Skip Connected
+                positive_skip_connected = client_group[(client_group['Call Status'] == 'CONNECTED') & 
+                                                      (client_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Account No.'].count()
+                negative_skip_connected = client_group[(client_group['Call Status'] == 'CONNECTED') & 
+                                                      (client_group['Status'].isin(negative_skip_status))]['Account No.'].count()
                 daily_data = client_group.groupby(client_group['Date'].dt.date).agg({
                     'Remark By': lambda x: x[(client_group['Call Duration'].notna()) & 
                                             (client_group['Call Duration'] > 0) & 
@@ -249,10 +259,16 @@ if uploaded_file is not None:
                     'Account No.': lambda x: x[client_group['Call Status'] == 'CONNECTED'].count(),
                     'Status': [
                         lambda x: sum(x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False)),
-                        lambda x: x.isin(negative_skip_status).sum()
+                        lambda x: x.isin(negative_skip_status).sum(),
+                        # Aggregations for new columns
+                        lambda x: x[(client_group['Call Status'] == 'CONNECTED') & 
+                                   (x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))].count(),
+                        lambda x: x[(client_group['Call Status'] == 'CONNECTED') & 
+                                   (x.isin(negative_skip_status))].count()
                     ]
                 })
-                daily_data.columns = ['Collectors', 'Talk Time', 'Total Connected', 'Positive Skip', 'Negative Skip']
+                daily_data.columns = ['Collectors', 'Talk Time', 'Total Connected', 'Positive Skip', 'Negative Skip', 
+                                     'Positive Skip Connected', 'Negative Skip Connected']
                 daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip']
                 daily_data['Positive Skip Ave'] = daily_data['Positive Skip'] / daily_data['Collectors']
                 daily_data['Negative Skip Ave'] = daily_data['Negative Skip'] / daily_data['Collectors']
@@ -269,10 +285,12 @@ if uploaded_file is not None:
                 talk_time_ave_str = f"{ave_hours:02d}:{ave_minutes:02d}:{ave_seconds:02d}"
                 overall_summary.append([
                     date_range_str, client, total_agents, total_connected, positive_skip_count, negative_skip_count, total_skip,
+                    positive_skip_connected, negative_skip_connected,  # Added new columns here
                     positive_skip_ave, negative_skip_ave, total_skip_ave, formatted_talk_time, connected_ave, talk_time_ave_str
                 ])
             overall_summary_df = pd.DataFrame(overall_summary, columns=[
                 'Date Range', 'Client', 'Collectors', 'Total Connected', 'Positive Skip', 'Negative Skip', 'Total Skip',
+                'Positive Skip Connected', 'Negative Skip Connected',  # Added new columns here
                 'Positive Skip Ave', 'Negative Skip Ave', 'Total Skip Ave', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
             ])
             st.dataframe(overall_summary_df)
