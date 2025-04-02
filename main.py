@@ -11,10 +11,14 @@ st.title('MC06 MONITORING')
 
 # Data loading function with file upload support
 @st.cache_data
-def load_data(uploaded_file):
+def load_data(uploaded_file, remark_column='Remark'):
     df = pd.read_excel(uploaded_file)
-    # Filter out rows where 'Remark' contains "broken promise" (case-insensitive)
-    df = df[~df['Remark'].astype(str).str.contains("broken promise", case=False, na=False)]
+    # Check if the specified remark column exists
+    if remark_column not in df.columns:
+        st.error(f"Column '{remark_column}' not found in the uploaded file. Available columns: {list(df.columns)}")
+        return None
+    # Filter out rows where the remark column contains "broken promise" (case-insensitive)
+    df = df[~df[remark_column].astype(str).str.contains("broken promise", case=False, na=False)]
     return df
 
 # Function to create a single Excel file with all summaries
@@ -245,17 +249,24 @@ def create_collector_summary_excel(collector_summary_dfs, overall_collector_summ
 
     return output.getvalue()
 
-# File uploader for Excel file
+# File uploader for Excel file and column selection
 uploaded_file = st.sidebar.file_uploader("Upload Daily Remark File", type="xlsx")
+if uploaded_file:
+    temp_df = pd.read_excel(uploaded_file)
+    possible_remark_columns = [col for col in temp_df.columns if 'remark' in col.lower()]
+    default_remark_column = 'Remark' if 'Remark' in temp_df.columns else (possible_remark_columns[0] if possible_remark_columns else temp_df.columns[0])
+    remark_column = st.sidebar.selectbox("Select the 'Remark' column", temp_df.columns, index=temp_df.columns.get_loc(default_remark_column))
 
 # Define columns outside the conditional block
 col1, col2 = st.columns(2)
 col3, col4 = st.columns(2)
 
 if uploaded_file is not None:
-    df = load_data(uploaded_file)
+    df = load_data(uploaded_file, remark_column)
+    if df is None:
+        st.stop()  # Stop execution if data loading fails
 
-    # Ensure 'Time' column is in datetime format
+    # Ensure required columns are in datetime or numeric format
     df['Time'] = pd.to_datetime(df['Time'], errors='coerce').dt.time
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Talk Time Duration'] = pd.to_numeric(df['Talk Time Duration'], errors='coerce').fillna(0)
@@ -474,14 +485,14 @@ if uploaded_file is not None:
             ])
             st.dataframe(overall_summary_df)
 
-            # Download button for client summaries
-            client_excel_data = create_client_summary_excel(summary_dfs, overall_summary_df)
-            st.download_button(
-                label="Download Client Summaries",
-                data=client_excel_data,
-                file_name="Client_Summaries.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Download button for client summaries (outside container for visibility)
+        client_excel_data = create_client_summary_excel(summary_dfs, overall_summary_df)
+        st.download_button(
+            label="Download Client Summaries",
+            data=client_excel_data,
+            file_name="Client_Summaries.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     # Summary Table by Collector
     with col3:
@@ -544,7 +555,6 @@ if uploaded_file is not None:
                 st.dataframe(summary_df)
                 collector_summary_dfs[collector] = summary_df
 
-    # Overall Summary per Collector
     with col4:
         st.write("## Overall Summary per Collector")
         with st.container():
@@ -601,20 +611,20 @@ if uploaded_file is not None:
             ])
             st.dataframe(overall_collector_summary_df)
 
-            # Download button for collector summaries
-            collector_excel_data = create_collector_summary_excel(collector_summary_dfs, overall_collector_summary_df)
-            st.download_button(
-                label="Download Collector Summaries",
-                data=collector_excel_data,
-                file_name="Collector_Summaries.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Download button for collector summaries (outside container for visibility)
+        collector_excel_data = create_collector_summary_excel(collector_summary_dfs, overall_collector_summary_df)
+        st.download_button(
+            label="Download Collector Summaries",
+            data=collector_excel_data,
+            file_name="Collector_Summaries.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
-            # Download button for all results
-            all_excel_data = create_combined_excel_file(summary_dfs, overall_summary_df, collector_summary_dfs, overall_collector_summary_df)
-            st.download_button(
-                label="Download All Results",
-                data=all_excel_data,
-                file_name="MC06_Monitoring_Results.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+    # Download button for all results (at the bottom of the app)
+    all_excel_data = create_combined_excel_file(summary_dfs, overall_summary_df, collector_summary_dfs, overall_collector_summary_df)
+    st.download_button(
+        label="Download All Results",
+        data=all_excel_data,
+        file_name="MC06_Monitoring_Results.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
