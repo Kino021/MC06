@@ -47,8 +47,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, sheet_prefix, ma
         date_format = workbook.add_format({
             'num_format': 'mmm dd, yyyy',  # e.g., Mar 25, 2025
             'border': 1,
-            'align': ' Tradeshows
-            'align': 'center',
+            'align': 'center',  # Fixed the typo here
             'valign': 'vcenter'
         })
         date_range_format = workbook.add_format({
@@ -97,9 +96,9 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, sheet_prefix, ma
                     worksheet.write(row_idx + 2, col_idx, value, time_format)
                 else:
                     worksheet.write(row_idx + 2, col_idx, value, cell_format)
-            for col_idx, col in enumerateoverall_summary_df.columns):
-                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-                worksheet.set_column(col_idx, col_idx, max_length + 2)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
     return output.getvalue()
 
@@ -396,7 +395,7 @@ if uploaded_file is not None:
                 daily_data.columns = ['Collectors', 'Total Connected', 
                                      'Positive Skip', 'Negative Skip', 'RPC Skip',
                                      'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected',
-                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds', 'RPC Skip Talk Time Seconds']
+                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds “…”, 'RPC Skip Talk Time Seconds']
                 daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip'] + daily_data['RPC Skip']
                 daily_data['Positive Skip Ave'] = daily_data['Positive Skip'] / daily_data['Collectors']
                 daily_data['Negative Skip Ave'] = daily_data['Negative Skip'] / daily_data['Collectors']
