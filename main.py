@@ -44,7 +44,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
                     if col_idx == 0:  # 'Day' column
                         worksheet.write_datetime(row_idx + 2, col_idx, value, date_format)
-                    elif col_idx in [8, 10, 11, 12]:  # Talk Time columns
+                    elif col_idx in [10, 11, 12, 13]:  # Talk Time columns (Positive, Negative, RPC, Total)
                         worksheet.write(row_idx + 2, col_idx, value, time_format)
                     else:
                         worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -55,7 +55,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
                     max_length = max(summary_df[col].astype(str).map(len).max(), len(str(col)))
                 worksheet.set_column(col_idx, col_idx, max_length + 2)
 
-        # Process the overall summary sheet
+        # Process the overall summary sheet (per client)
         overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=2, header=False)
         worksheet = writer.sheets["Overall_Summary"]
         worksheet.merge_range('A1:U1', "Overall Summary per Client", main_header_format)
@@ -65,16 +65,16 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
             for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
                 if col_idx == 0:  # 'Date Range' column
                     worksheet.write(row_idx + 2, col_idx, value, date_range_format)
-                elif col_idx in [11, 13, 14, 15]:  # Talk Time columns
+                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns (Positive, Negative, RPC, Total)
                     worksheet.write(row_idx + 2, col_idx, value, time_format)
                 else:
                     worksheet.write(row_idx + 2, col_idx, value, cell_format)
-            for col_idx, col in enumerate(overall_summary_df.columns):
-                if col_idx == 0:
-                    max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-                else:
-                    max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-                worksheet.set_column(col_idx, col_idx, max_length + 2)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            if col_idx == 0:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            else:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
         # Process each collector's summary sheet
         for collector, summary_df in collector_summary_dfs.items():
@@ -88,7 +88,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
                     if col_idx == 0:  # 'Day' column
                         worksheet.write_datetime(row_idx + 2, col_idx, value, date_format)
-                    elif col_idx in [9, 11, 12, 13]:  # Talk Time columns
+                    elif col_idx in [10, 11, 12, 13]:  # Talk Time columns (Positive, Negative, RPC, Total)
                         worksheet.write(row_idx + 2, col_idx, value, time_format)
                     else:
                         worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -109,16 +109,16 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
             for col_idx, value in enumerate(overall_collector_summary_df.iloc[row_idx]):
                 if col_idx == 0:  # 'Date Range' column
                     worksheet.write(row_idx + 2, col_idx, value, date_range_format)
-                elif col_idx in [12, 14, 15, 16]:  # Talk Time columns
+                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns (Positive, Negative, RPC, Total)
                     worksheet.write(row_idx + 2, col_idx, value, time_format)
                 else:
                     worksheet.write(row_idx + 2, col_idx, value, cell_format)
-            for col_idx, col in enumerate(overall_collector_summary_df.columns):
-                if col_idx == 0:
-                    max_length = max(overall_collector_summary_df[col].astype(str).map(len).max(), len(str(col)))
-                else:
-                    max_length = max(overall_collector_summary_df[col].astype(str).map(len).max(), len(str(col)))
-                worksheet.set_column(col_idx, col_idx, max_length + 2)
+        for col_idx, col in enumerate(overall_collector_summary_df.columns):
+            if col_idx == 0:
+                max_length = max(overall_collector_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            else:
+                max_length = max(overall_collector_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
     return output.getvalue()
 
@@ -138,7 +138,7 @@ if uploaded_file is not None:
     df['Talk Time Duration'] = pd.to_numeric(df['Talk Time Duration'], errors='coerce').fillna(0)
     df['Call Duration'] = pd.to_numeric(df['Call Duration'], errors='coerce').fillna(0)
 
-    # Define skip conditions (unchanged from your original code)
+    # Define skip conditions
     positive_skip_keywords = [
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE CALL SMS", "BRGY SKIPTRACE_POS - LEAVE MESSAGE FACEBOOK",
         "POS VIA DIGITAL SKIP - OTHER SOCMED PLATFORMS", "POSITIVE VIA DIGITAL SKIP - FACEBOOK",
@@ -178,7 +178,7 @@ if uploaded_file is not None:
     summary_dfs = {}
     collector_summary_dfs = {}
 
-    # Client-based summaries (unchanged from your original code)
+    # Client-based summaries
     with col1:
         st.write("## Summary Table by Day")
         min_date = df['Date'].min().date()
@@ -351,7 +351,7 @@ if uploaded_file is not None:
             ])
             st.dataframe(overall_summary_df)
 
-    # New section: Summary Table by Collector
+    # Summary Table by Collector
     with col3:
         st.write("## Summary Table by Collector")
         for collector, collector_group in filtered_df.groupby('Remark By'):
@@ -409,7 +409,7 @@ if uploaded_file is not None:
                 st.dataframe(summary_df)
                 collector_summary_dfs[collector] = summary_df
 
-    # New section: Overall Summary per Collector
+    # Overall Summary per Collector
     with col4:
         st.write("## Overall Summary per Collector")
         with st.container():
