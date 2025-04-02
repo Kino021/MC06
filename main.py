@@ -21,7 +21,7 @@ def load_data(uploaded_file, remark_column='Remark'):
     df = df[~df[remark_column].astype(str).str.contains("broken promise", case=False, na=False)]
     return df
 
-# Function to create a single Excel file with all summaries
+# Function to create a single Excel file with all summaries (Overall Summary first)
 def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summary_dfs, overall_collector_summary_df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -36,6 +36,27 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
         date_format = workbook.add_format({'num_format': 'mmm dd, yyyy', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         date_range_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
         time_format = workbook.add_format({'num_format': 'hh:mm:ss', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+
+        # Process the overall summary sheet (per client) first
+        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=2, header=False)
+        worksheet = writer.sheets["Overall_Summary"]
+        worksheet.merge_range('A1:U1', "Overall Summary per Client", main_header_format)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            worksheet.write(1, col_idx, col, header_format)
+        for row_idx in range(len(overall_summary_df)):
+            for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
+                if col_idx == 0:  # 'Date Range' column
+                    worksheet.write(row_idx + 2, col_idx, value, date_range_format)
+                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns
+                    worksheet.write(row_idx + 2, col_idx, value, time_format)
+                else:
+                    worksheet.write(row_idx + 2, col_idx, value, cell_format)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            if col_idx == 0:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            else:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
         # Process each client's summary sheet
         for client, summary_df in summary_dfs.items():
@@ -58,27 +79,6 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
                 else:
                     max_length = max(summary_df[col].astype(str).map(len).max(), len(str(col)))
                 worksheet.set_column(col_idx, col_idx, max_length + 2)
-
-        # Process the overall summary sheet (per client)
-        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=2, header=False)
-        worksheet = writer.sheets["Overall_Summary"]
-        worksheet.merge_range('A1:U1', "Overall Summary per Client", main_header_format)
-        for col_idx, col in enumerate(overall_summary_df.columns):
-            worksheet.write(1, col_idx, col, header_format)
-        for row_idx in range(len(overall_summary_df)):
-            for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
-                if col_idx == 0:  # 'Date Range' column
-                    worksheet.write(row_idx + 2, col_idx, value, date_range_format)
-                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns
-                    worksheet.write(row_idx + 2, col_idx, value, time_format)
-                else:
-                    worksheet.write(row_idx + 2, col_idx, value, cell_format)
-        for col_idx, col in enumerate(overall_summary_df.columns):
-            if col_idx == 0:
-                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-            else:
-                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
         # Process each collector's summary sheet
         for collector, summary_df in collector_summary_dfs.items():
@@ -126,7 +126,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
 
     return output.getvalue()
 
-# Function to create Excel file for client summaries only
+# Function to create Excel file for client summaries only (Overall Summary first)
 def create_client_summary_excel(summary_dfs, overall_summary_df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -141,6 +141,27 @@ def create_client_summary_excel(summary_dfs, overall_summary_df):
         date_format = workbook.add_format({'num_format': 'mmm dd, yyyy', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
         date_range_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
         time_format = workbook.add_format({'num_format': 'hh:mm:ss', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+
+        # Process the overall summary sheet (per client) first
+        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=2, header=False)
+        worksheet = writer.sheets["Overall_Summary"]
+        worksheet.merge_range('A1:U1', "Overall Summary per Client", main_header_format)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            worksheet.write(1, col_idx, col, header_format)
+        for row_idx in range(len(overall_summary_df)):
+            for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
+                if col_idx == 0:  # 'Date Range' column
+                    worksheet.write(row_idx + 2, col_idx, value, date_range_format)
+                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns
+                    worksheet.write(row_idx + 2, col_idx, value, time_format)
+                else:
+                    worksheet.write(row_idx + 2, col_idx, value, cell_format)
+        for col_idx, col in enumerate(overall_summary_df.columns):
+            if col_idx == 0:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            else:
+                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
+            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
         # Process each client's summary sheet
         for client, summary_df in summary_dfs.items():
@@ -163,27 +184,6 @@ def create_client_summary_excel(summary_dfs, overall_summary_df):
                 else:
                     max_length = max(summary_df[col].astype(str).map(len).max(), len(str(col)))
                 worksheet.set_column(col_idx, col_idx, max_length + 2)
-
-        # Process the overall summary sheet (per client)
-        overall_summary_df.to_excel(writer, sheet_name="Overall_Summary", index=False, startrow=2, header=False)
-        worksheet = writer.sheets["Overall_Summary"]
-        worksheet.merge_range('A1:U1', "Overall Summary per Client", main_header_format)
-        for col_idx, col in enumerate(overall_summary_df.columns):
-            worksheet.write(1, col_idx, col, header_format)
-        for row_idx in range(len(overall_summary_df)):
-            for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
-                if col_idx == 0:  # 'Date Range' column
-                    worksheet.write(row_idx + 2, col_idx, value, date_range_format)
-                elif col_idx in [11, 12, 13, 14]:  # Talk Time columns
-                    worksheet.write(row_idx + 2, col_idx, value, time_format)
-                else:
-                    worksheet.write(row_idx + 2, col_idx, value, cell_format)
-        for col_idx, col in enumerate(overall_summary_df.columns):
-            if col_idx == 0:
-                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-            else:
-                max_length = max(overall_summary_df[col].astype(str).map(len).max(), len(str(col)))
-            worksheet.set_column(col_idx, col_idx, max_length + 2)
 
     return output.getvalue()
 
@@ -552,7 +552,6 @@ if uploaded_file is not None:
             valid_df = filtered_df[(filtered_df['Call Duration'].notna()) & 
                                   (filtered_df['Call Duration'] > 0) & 
                                   (filtered_df['Remark By'].str.lower() != "system")]
-            # For collectors, we assume 1 collector per day worked, so we count unique days instead of collectors
             avg_days_per_collector = valid_df.groupby('Remark By')['Date'].dt.date.nunique()
 
             overall_collector_summary = []
