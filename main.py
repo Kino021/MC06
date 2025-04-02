@@ -47,7 +47,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, sheet_prefix, ma
         date_format = workbook.add_format({
             'num_format': 'mmm dd, yyyy',  # e.g., Mar 25, 2025
             'border': 1,
-            'align': 'center',  # Fixed the typo here
+            'align': 'center',
             'valign': 'vcenter'
         })
         date_range_format = workbook.add_format({
@@ -127,7 +127,7 @@ if uploaded_file is not None:
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE FACEBOOK",
         "POS VIA DIGITAL SKIP - OTHER SOCMED PLATFORMS",
         "POSITIVE VIA DIGITAL SKIP - FACEBOOK",
-        "POSITIVE VIA DIGITAL SKIP - GOOGLE SEARCH",
+        "POSITIVE VIA DIGITAL SKIP - Google SEARCH",
         "POSITIVE VIA DIGITAL SKIP - INSTAGRAM",
         "POSITIVE VIA DIGITAL SKIP - LINKEDIN",
         "POSITIVE VIA DIGITAL SKIP - OTHER SOCMED",
@@ -395,7 +395,7 @@ if uploaded_file is not None:
                 daily_data.columns = ['Collectors', 'Total Connected', 
                                      'Positive Skip', 'Negative Skip', 'RPC Skip',
                                      'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected',
-                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds “…”, 'RPC Skip Talk Time Seconds']
+                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds', 'RPC Skip Talk Time Seconds']
                 daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip'] + daily_data['RPC Skip']
                 daily_data['Positive Skip Ave'] = daily_data['Positive Skip'] / daily_data['Collectors']
                 daily_data['Negative Skip Ave'] = daily_data['Negative Skip'] / daily_data['Collectors']
