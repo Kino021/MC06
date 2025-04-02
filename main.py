@@ -127,7 +127,7 @@ if uploaded_file is not None:
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE FACEBOOK",
         "POS VIA DIGITAL SKIP - OTHER SOCMED PLATFORMS",
         "POSITIVE VIA DIGITAL SKIP - FACEBOOK",
-        "POSITIVE VIA DIGITAL SKIP - Google SEARCH",
+        "POSITIVE VIA DIGITAL SKIP - GOOGLE SEARCH",
         "POSITIVE VIA DIGITAL SKIP - INSTAGRAM",
         "POSITIVE VIA DIGITAL SKIP - LINKEDIN",
         "POSITIVE VIA DIGITAL SKIP - OTHER SOCMED",
@@ -212,6 +212,7 @@ if uploaded_file is not None:
                                             (date_group['Call Duration'] > 0) & 
                                             (date_group['Remark By'].str.lower() != "system")]
                     total_agents = valid_group['Remark By'].nunique()
+                    collectors = ', '.join(valid_group['Remark By'].unique())  # List of unique collectors for the day
                     total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                     total_talk_time_seconds = date_group['Talk Time Duration'].sum()
                     hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -252,13 +253,13 @@ if uploaded_file is not None:
                     total_skip_ave = round(total_skip / total_agents, 2) if total_agents > 0 else 0
                     connected_ave = round(total_connected / total_agents, 2) if total_agents > 0 else 0
                     summary_table.append([
-                        date, total_agents, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                        date, collectors, total_agents, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                         positive_skip_connected, negative_skip_connected, rpc_skip_connected, 
                         positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
                         formatted_talk_time, positive_skip_ave, negative_skip_ave, rpc_skip_ave, total_skip_ave, connected_ave, talk_time_ave_str
                     ])
                 summary_df = pd.DataFrame(summary_table, columns=[
-                    'Day', 'Collectors', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                    'Day', 'Collectors Names', 'Collectors Count', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                     'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                     'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
                     'Talk Time (HH:MM:SS)', 'Positive Skip Ave', 'Negative Skip Ave', 'RPC Skip Ave', 'Total Skip Ave', 'Connected Ave', 'Talk Time Ave'
