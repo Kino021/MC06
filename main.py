@@ -92,7 +92,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
                     if col_idx == 0:  # 'Day' column
                         worksheet.write_datetime(row_idx + 2, col_idx, value, date_format)
-                    elif col_idx in [12, 13, 14, 15]:  # Talk Time columns
+                    elif col_idx in [13, 14, 15, 16]:  # Adjusted Talk Time columns
                         worksheet.write(row_idx + 2, col_idx, value, time_format)
                     else:
                         worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -106,7 +106,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, collector_summar
         # Process the overall collector summary sheet
         overall_collector_summary_df.to_excel(writer, sheet_name="Overall_Collector_Summary", index=False, startrow=2, header=False)
         worksheet = writer.sheets["Overall_Collector_Summary"]
-        worksheet.merge_range('A1:X1', "Overall Summary per Collector", main_header_format)
+        worksheet.merge_range('A1:W1', "Overall Summary per Collector", main_header_format)
         for col_idx, col in enumerate(overall_collector_summary_df.columns):
             worksheet.write(1, col_idx, col, header_format)
         for row_idx in range(len(overall_collector_summary_df)):
@@ -215,7 +215,7 @@ def create_collector_summary_excel(collector_summary_dfs, overall_collector_summ
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
                     if col_idx == 0:  # 'Day' column
                         worksheet.write_datetime(row_idx + 2, col_idx, value, date_format)
-                    elif col_idx in [12, 13, 14, 15]:  # Talk Time columns
+                    elif col_idx in [13, 14, 15, 16]:  # Adjusted Talk Time columns
                         worksheet.write(row_idx + 2, col_idx, value, time_format)
                     else:
                         worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -229,7 +229,7 @@ def create_collector_summary_excel(collector_summary_dfs, overall_collector_summ
         # Process the overall collector summary sheet
         overall_collector_summary_df.to_excel(writer, sheet_name="Overall_Collector_Summary", index=False, startrow=2, header=False)
         worksheet = writer.sheets["Overall_Collector_Summary"]
-        worksheet.merge_range('A1:X1', "Overall Summary per Collector", main_header_format)
+        worksheet.merge_range('A1:W1', "Overall Summary per Collector", main_header_format)
         for col_idx, col in enumerate(overall_collector_summary_df.columns):
             worksheet.write(1, col_idx, col, header_format)
         for row_idx in range(len(overall_collector_summary_df)):
@@ -485,16 +485,6 @@ if uploaded_file is not None:
             ])
             st.dataframe(overall_summary_df)
 
-        # Download button for client summaries (outside container for visibility)
-        client_excel_data = create_client_summary_excel(summary_dfs, overall_summary_df)
-        st.download_button(
-            label="Download Client Summaries",
-            data=client_excel_data,
-            file_name="Client_Summaries.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    # Summary Table by Collector
     with col3:
         st.write("## Summary Table by Collector")
         for collector, collector_group in filtered_df.groupby('Remark By'):
@@ -559,11 +549,17 @@ if uploaded_file is not None:
         st.write("## Overall Summary per Collector")
         with st.container():
             date_range_str = f"{start_date.strftime('%b %d %Y').upper()} - {end_date.strftime('%b %d %Y').upper()}"
+            valid_df = filtered_df[(filtered_df['Call Duration'].notna()) & 
+                                  (filtered_df['Call Duration'] > 0) & 
+                                  (filtered_df['Remark By'].str.lower() != "system")]
+            # For collectors, we assume 1 collector per day worked, so we count unique days instead of collectors
+            avg_days_per_collector = valid_df.groupby('Remark By')['Date'].dt.date.nunique()
+
             overall_collector_summary = []
             for collector, collector_group in filtered_df.groupby('Remark By'):
                 if collector.lower() == "system":  # Skip "system" entries
                     continue
-                st.write(f"Collector: {collector}")
+                total_days = avg_days_per_collector.get(collector, 0)  # Number of unique days worked
                 client = collector_group['Client'].mode()[0]  # Most frequent client; adjust if multiple clients expected
                 total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                 manual_calls = collector_group['Remark Type'].astype(str).str.contains("outgoing", case=False, na=False).sum()
@@ -597,30 +593,90 @@ if uploaded_file is not None:
                 rpc_hours, rpc_remainder = divmod(int(rpc_skip_talk_time_seconds), 3600)
                 rpc_minutes, rpc_seconds = divmod(rpc_remainder, 60)
                 rpc_skip_talk_time = f"{rpc_hours:02d}:{rpc_minutes:02d}:{rpc_seconds:02d}"
+                daily_data = collector_group.groupby(collector_group['Date'].dt.date).agg({
+                    'Account No.': lambda x: x[collector_group['Call Status'] == 'CONNECTED'].count(),
+                    'Remark Type': [
+                        lambda x: x.astype(str).str.contains("outgoing", case=False, na=False).sum(),
+                        lambda x: x[collector_group['Remark Type'].astype(str).str.contains("outgoing", case=False, na=False)].nunique()
+                    ],
+                    'Status': [
+                        lambda x: sum(x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False)),
+                        lambda x: x.isin(negative_skip_status).sum(),
+                        lambda x: x.isin(rpc_skip_status).sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))].count(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.isin(negative_skip_status))].count(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.isin(rpc_skip_status))].count()
+                    ],
+                    'Talk Time Duration': [
+                        'sum',
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))].sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].isin(negative_skip_status))].sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].isin(rpc_skip_status))].sum()
+                    ]
+                })
+                daily_data.columns = ['Total Connected', 
+                                     'Manual Calls', 'Manual Accounts',
+                                     'Positive Skip', 'Negative Skip', 'RPC Skip',
+                                     'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected',
+                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds', 'RPC Skip Talk Time Seconds']
+                daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip'] + daily_data['RPC Skip']
+                daily_data['Positive Skip Ave'] = daily_data['Positive Skip']  # Per day, no division by collectors since it's per collector
+                daily_data['Negative Skip Ave'] = daily_data['Negative Skip']
+                daily_data['RPC Skip Ave'] = daily_data['RPC Skip']
+                daily_data['Total Skip Ave'] = daily_data['Total Skip']
+                daily_data['Connected Ave'] = daily_data['Total Connected']
+                daily_data['Talk Time Ave Seconds'] = daily_data['Talk Time']
+                positive_skip_ave = round(daily_data['Positive Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                negative_skip_ave = round(daily_data['Negative Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                rpc_skip_ave = round(daily_data['RPC Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                total_skip_ave = round(daily_data['Total Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                connected_ave = round(daily_data['Connected Ave'].mean(), 2) if not daily_data.empty else 0
+                talk_time_ave_seconds = daily_data['Talk Time Ave Seconds'].mean() if not daily_data.empty else 0
+                ave_hours, ave_remainder = divmod(int(talk_time_ave_seconds), 3600)
+                ave_minutes, ave_seconds = divmod(ave_remainder, 60)
+                talk_time_ave_str = f"{ave_hours:02d}:{ave_minutes:02d}:{ave_seconds:02d}"
                 overall_collector_summary.append([
-                    date_range_str, collector, client, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                    date_range_str, collector, client, total_days, manual_calls, manual_accounts, total_connected, 
+                    positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                     positive_skip_connected, negative_skip_connected, rpc_skip_connected,
                     positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
-                    formatted_talk_time
+                    positive_skip_ave, negative_skip_ave, rpc_skip_ave, total_skip_ave, formatted_talk_time, connected_ave, talk_time_ave_str
                 ])
             overall_collector_summary_df = pd.DataFrame(overall_collector_summary, columns=[
-                'Date Range', 'Collector', 'Client', 'Manual Calls', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                'Date Range', 'Collector', 'Client', 'Days Worked', 'Manual Calls', 'Manual Accounts', 'Total Connected', 
+                'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                 'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                 'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
-                'Talk Time (HH:MM:SS)'
+                'Positive Skip Ave', 'Negative Skip Ave', 'RPC Skip Ave', 'Total Skip Ave', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
             ])
             st.dataframe(overall_collector_summary_df)
 
-        # Download button for collector summaries (outside container for visibility)
-        collector_excel_data = create_collector_summary_excel(collector_summary_dfs, overall_collector_summary_df)
-        st.download_button(
-            label="Download Collector Summaries",
-            data=collector_excel_data,
-            file_name="Collector_Summaries.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    # Download buttons at the bottom of the app
+    st.markdown("---")
+    st.subheader("Download Options")
 
-    # Download button for all results (at the bottom of the app)
+    client_excel_data = create_client_summary_excel(summary_dfs, overall_summary_df)
+    st.download_button(
+        label="Download Client Summaries",
+        data=client_excel_data,
+        file_name="Client_Summaries.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    collector_excel_data = create_collector_summary_excel(collector_summary_dfs, overall_collector_summary_df)
+    st.download_button(
+        label="Download Collector Summaries",
+        data=collector_excel_data,
+        file_name="Collector_Summaries.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
     all_excel_data = create_combined_excel_file(summary_dfs, overall_summary_df, collector_summary_dfs, overall_collector_summary_df)
     st.download_button(
         label="Download All Results",
