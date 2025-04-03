@@ -74,7 +74,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, sheet_prefix, ma
                 for col_idx, value in enumerate(summary_df.iloc[row_idx]):
                     if col_idx == 0:  # 'Day' or 'Date Range' column
                         worksheet.write(row_idx + 2, col_idx, value, date_format if sheet_prefix == "Summary" else date_range_format)
-                    elif col_idx in [10, 12, 13, 14]:  # Talk Time columns
+                    elif col_idx in [12, 14, 15, 16]:  # Talk Time columns (adjusted for new columns)
                         worksheet.write(row_idx + 2, col_idx, value, time_format)
                     else:
                         worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -92,7 +92,7 @@ def create_combined_excel_file(summary_dfs, overall_summary_df, sheet_prefix, ma
             for col_idx, value in enumerate(overall_summary_df.iloc[row_idx]):
                 if col_idx == 0:  # 'Date Range' column
                     worksheet.write(row_idx + 2, col_idx, value, date_range_format)
-                elif col_idx in [12, 14, 15, 16]:  # Talk Time columns
+                elif col_idx in [14, 16, 17, 18]:  # Talk Time columns (adjusted for new columns)
                     worksheet.write(row_idx + 2, col_idx, value, time_format)
                 else:
                     worksheet.write(row_idx + 2, col_idx, value, cell_format)
@@ -212,6 +212,8 @@ if uploaded_file is not None:
                                             (date_group['Call Duration'] > 0) & 
                                             (date_group['Remark By'].str.lower() != "system")]
                     total_agents = valid_group['Remark By'].nunique()
+                    manual_calls = date_group[date_group['Remark Type'] == 'outgoing'].shape[0]
+                    manual_accounts = date_group[date_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                     total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                     total_talk_time_seconds = date_group['Talk Time Duration'].sum()
                     hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -252,13 +254,13 @@ if uploaded_file is not None:
                     total_skip_ave = round(total_skip / total_agents, 2) if total_agents > 0 else 0
                     connected_ave = round(total_connected / total_agents, 2) if total_agents > 0 else 0
                     summary_table.append([
-                        date, total_agents, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                        date, total_agents, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                         positive_skip_connected, negative_skip_connected, rpc_skip_connected, 
                         positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
                         formatted_talk_time, positive_skip_ave, negative_skip_ave, rpc_skip_ave, total_skip_ave, connected_ave, talk_time_ave_str
                     ])
                 summary_df = pd.DataFrame(summary_table, columns=[
-                    'Day', 'Collectors Count', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                    'Day', 'Collectors Count', 'Manual Call', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                     'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                     'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
                     'Talk Time (HH:MM:SS)', 'Positive Skip Ave', 'Negative Skip Ave', 'RPC Skip Ave', 'Total Skip Ave', 'Connected Ave', 'Talk Time Ave'
@@ -278,6 +280,8 @@ if uploaded_file is not None:
                     valid_group = date_group[(date_group['Call Duration'].notna()) & 
                                             (date_group['Call Duration'] > 0)]
                     collectors = collector  # Single collector name
+                    manual_calls = date_group[date_group['Remark Type'] == 'outgoing'].shape[0]
+                    manual_accounts = date_group[date_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                     total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                     total_talk_time_seconds = date_group['Talk Time Duration'].sum()
                     hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -308,19 +312,17 @@ if uploaded_file is not None:
                     rpc_hours, rpc_remainder = divmod(int(rpc_skip_talk_time_seconds), 3600)
                     rpc_minutes, rpc_seconds = divmod(rpc_remainder, 60)
                     rpc_skip_talk_time = f"{rpc_hours:02d}:{rpc_minutes:02d}:{rpc_seconds:02d}"
-                    manual_calls = date_group[date_group['Remark Type'] == 'outgoing'].shape[0]
-                    manual_accounts = date_group[date_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                     summary_table.append([
-                        date, collectors, client, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                        date, collectors, client, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                         positive_skip_connected, negative_skip_connected, rpc_skip_connected, 
                         positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
-                        formatted_talk_time, manual_calls, manual_accounts
+                        formatted_talk_time
                     ])
                 summary_df = pd.DataFrame(summary_table, columns=[
-                    'Day', 'Collector', 'Client', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                    'Day', 'Collector', 'Client', 'Manual Call', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                     'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                     'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
-                    'Talk Time (HH:MM:SS)', 'Manual Calls', 'Manual Accounts'
+                    'Talk Time (HH:MM:SS)'
                 ])
                 st.dataframe(summary_df)
                 collector_summary_dfs[collector] = summary_df
@@ -337,6 +339,8 @@ if uploaded_file is not None:
             overall_client_summary = []
             for client, client_group in filtered_df.groupby('Client'):
                 total_agents = avg_collectors_per_client.get(client, 0)
+                manual_calls = client_group[client_group['Remark Type'] == 'outgoing'].shape[0]
+                manual_accounts = client_group[client_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                 total_connected = client_group[client_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                 total_talk_time_seconds = client_group['Talk Time Duration'].sum()
                 hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -414,13 +418,13 @@ if uploaded_file is not None:
                 ave_minutes, ave_seconds = divmod(ave_remainder, 60)
                 talk_time_ave_str = f"{ave_hours:02d}:{ave_minutes:02d}:{ave_seconds:02d}"
                 overall_client_summary.append([
-                    date_range_str, client, total_agents, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                    date_range_str, client, total_agents, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                     positive_skip_connected, negative_skip_connected, rpc_skip_connected,
                     positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
                     positive_skip_ave, negative_skip_ave, rpc_skip_ave, total_skip_ave, formatted_talk_time, connected_ave, talk_time_ave_str
                 ])
             overall_client_summary_df = pd.DataFrame(overall_client_summary, columns=[
-                'Date Range', 'Client', 'Collectors', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                'Date Range', 'Client', 'Collectors', 'Manual Call', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                 'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                 'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
                 'Positive Skip Ave', 'Negative Skip Ave', 'RPC Skip Ave', 'Total Skip Ave', 'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
@@ -443,6 +447,8 @@ if uploaded_file is not None:
                 if collector.lower() == "system":
                     continue
                 client = collector_group['Client'].iloc[0]  # Assuming each collector is tied to one client
+                manual_calls = collector_group[collector_group['Remark Type'] == 'outgoing'].shape[0]
+                manual_accounts = collector_group[collector_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                 total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                 total_talk_time_seconds = collector_group['Talk Time Duration'].sum()
                 hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -473,19 +479,17 @@ if uploaded_file is not None:
                 rpc_hours, rpc_remainder = divmod(int(rpc_skip_talk_time_seconds), 3600)
                 rpc_minutes, rpc_seconds = divmod(rpc_remainder, 60)
                 rpc_skip_talk_time = f"{rpc_hours:02d}:{rpc_minutes:02d}:{rpc_seconds:02d}"
-                manual_calls = collector_group[collector_group['Remark Type'] == 'outgoing'].shape[0]
-                manual_accounts = collector_group[collector_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
                 overall_collector_summary.append([
-                    date_range_str, collector, client, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                    date_range_str, collector, client, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                     positive_skip_connected, negative_skip_connected, rpc_skip_connected,
                     positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
-                    formatted_talk_time, manual_calls, manual_accounts
+                    formatted_talk_time
                 ])
             overall_collector_summary_df = pd.DataFrame(overall_collector_summary, columns=[
-                'Date Range', 'Collector', 'Client', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                'Date Range', 'Collector', 'Client', 'Manual Call', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                 'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                 'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
-                'Talk Time (HH:MM:SS)', 'Manual Calls', 'Manual Accounts'
+                'Talk Time (HH:MM:SS)'
             ])
             st.dataframe(overall_collector_summary_df)
 
