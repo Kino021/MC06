@@ -121,6 +121,9 @@ if uploaded_file is not None:
     df['Talk Time Duration'] = pd.to_numeric(df['Talk Time Duration'], errors='coerce').fillna(0)
     df['Call Duration'] = pd.to_numeric(df['Call Duration'], errors='coerce').fillna(0)
 
+    # Debug: Check unique values in 'Remark Type' to confirm the data
+    st.write("Unique values in 'Remark Type':", df['Remark Type'].unique())
+
     # Define Positive Skip conditions
     positive_skip_keywords = [
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE CALL SMS",
@@ -212,8 +215,9 @@ if uploaded_file is not None:
                                             (date_group['Call Duration'] > 0) & 
                                             (date_group['Remark By'].str.lower() != "system")]
                     total_agents = valid_group['Remark By'].nunique()
-                    manual_calls = date_group[date_group['Remark Type'] == 'outgoing'].shape[0]
-                    manual_accounts = date_group[date_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
+                    # Case-insensitive comparison for 'Remark Type'
+                    manual_calls = date_group[date_group['Remark Type'].str.lower() == 'outgoing'].shape[0]
+                    manual_accounts = date_group[date_group['Remark Type'].str.lower() == 'outgoing']['Account No.'].nunique()
                     total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                     total_talk_time_seconds = date_group['Talk Time Duration'].sum()
                     hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -280,8 +284,9 @@ if uploaded_file is not None:
                     valid_group = date_group[(date_group['Call Duration'].notna()) & 
                                             (date_group['Call Duration'] > 0)]
                     collectors = collector  # Single collector name
-                    manual_calls = date_group[date_group['Remark Type'] == 'outgoing'].shape[0]
-                    manual_accounts = date_group[date_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
+                    # Case-insensitive comparison for 'Remark Type'
+                    manual_calls = date_group[date_group['Remark Type'].str.lower() == 'outgoing'].shape[0]
+                    manual_accounts = date_group[date_group['Remark Type'].str.lower() == 'outgoing']['Account No.'].nunique()
                     total_connected = date_group[date_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                     total_talk_time_seconds = date_group['Talk Time Duration'].sum()
                     hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -339,8 +344,9 @@ if uploaded_file is not None:
             overall_client_summary = []
             for client, client_group in filtered_df.groupby('Client'):
                 total_agents = avg_collectors_per_client.get(client, 0)
-                manual_calls = client_group[client_group['Remark Type'] == 'outgoing'].shape[0]
-                manual_accounts = client_group[client_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
+                # Case-insensitive comparison for 'Remark Type'
+                manual_calls = client_group[client_group['Remark Type'].str.lower() == 'outgoing'].shape[0]
+                manual_accounts = client_group[client_group['Remark Type'].str.lower() == 'outgoing']['Account No.'].nunique()
                 total_connected = client_group[client_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                 total_talk_time_seconds = client_group['Talk Time Duration'].sum()
                 hours, remainder = divmod(int(total_talk_time_seconds), 3600)
@@ -447,8 +453,9 @@ if uploaded_file is not None:
                 if collector.lower() == "system":
                     continue
                 client = collector_group['Client'].iloc[0]  # Assuming each collector is tied to one client
-                manual_calls = collector_group[collector_group['Remark Type'] == 'outgoing'].shape[0]
-                manual_accounts = collector_group[collector_group['Remark Type'] == 'outgoing']['Account No.'].nunique()
+                # Case-insensitive comparison for 'Remark Type'
+                manual_calls = collector_group[collector_group['Remark Type'].str.lower() == 'outgoing'].shape[0]
+                manual_accounts = collector_group[collector_group['Remark Type'].str.lower() == 'outgoing']['Account No.'].nunique()
                 total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
                 total_talk_time_seconds = collector_group['Talk Time Duration'].sum()
                 hours, remainder = divmod(int(total_talk_time_seconds), 3600)
