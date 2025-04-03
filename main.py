@@ -322,6 +322,7 @@ if uploaded_file is not None:
                 if collector.lower() == "system":
                     continue
                 client = collector_group['Client'].iloc[0]  # Assuming each collector is tied to one client
+                total_agents = 1  # Since this is per collector, it's always 1
                 manual_calls = collector_group[collector_group['Remark Type'].str.lower() == 'outgoing'].shape[0]
                 manual_accounts = collector_group[collector_group['Remark Type'].str.lower() == 'outgoing']['Account No.'].nunique()
                 total_connected = collector_group[collector_group['Call Status'] == 'CONNECTED']['Account No.'].count()
@@ -354,17 +355,70 @@ if uploaded_file is not None:
                 rpc_hours, rpc_remainder = divmod(int(rpc_skip_talk_time_seconds), 3600)
                 rpc_minutes, rpc_seconds = divmod(rpc_remainder, 60)
                 rpc_skip_talk_time = f"{rpc_hours:02d}:{rpc_minutes:02d}:{rpc_seconds:02d}"
+
+                # Calculate daily averages similar to client summary
+                daily_data = collector_group.groupby(collector_group['Date'].dt.date).agg({
+                    'Remark By': lambda x: 1,  # Always 1 for individual collector
+                    'Account No.': lambda x: x[collector_group['Call Status'] == 'CONNECTED'].count(),
+                    'Status': [
+                        lambda x: sum(x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False)),
+                        lambda x: x.isin(negative_skip_status).sum(),
+                        lambda x: x.isin(rpc_skip_status).sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))].count(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.isin(negative_skip_status))].count(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (x.isin(rpc_skip_status))].count()
+                    ],
+                    'Talk Time Duration': [
+                        'sum',
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))].sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].isin(negative_skip_status))].sum(),
+                        lambda x: x[(collector_group['Call Status'] == 'CONNECTED') & 
+                                   (collector_group['Status'].isin(rpc_skip_status))].sum()
+                    ]
+                })
+                daily_data.columns = ['Collectors', 'Total Connected', 
+                                     'Positive Skip', 'Negative Skip', 'RPC Skip',
+                                     'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected',
+                                     'Talk Time', 'Positive Skip Talk Time Seconds', 'Negative Skip Talk Time Seconds', 'RPC Skip Talk Time Seconds']
+                daily_data['Total Skip'] = daily_data['Positive Skip'] + daily_data['Negative Skip'] + daily_data['RPC Skip']
+                daily_data['Positive Skip Ave'] = daily_data['Positive Skip'] / daily_data['Collectors']
+                daily_data['Negative Skip Ave'] = daily_data['Negative Skip'] / daily_data['Collectors']
+                daily_data['RPC Skip Ave'] = daily_data['RPC Skip'] / daily_data['Collectors']
+                daily_data['Total Skip Ave'] = daily_data['Total Skip'] / daily_data['Collectors']
+                daily_data['Connected Ave'] = daily_data['Total Connected'] / daily_data['Collectors']
+                daily_data['Talk Time Ave Seconds'] = daily_data['Talk Time'] / daily_data['Collectors']
+                
+                positive_skip_ave = round(daily_data['Positive Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                negative_skip_ave = round(daily_data['Negative Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                rpc_skip_ave = round(daily_data['RPC Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                total_skip_ave = round(daily_data['Total Skip Ave'].mean(), 2) if not daily_data.empty else 0
+                connected_ave = round(daily_data['Connected Ave'].mean(), 2) if not daily_data.empty else 0
+                talk_time_ave_seconds = daily_data['Talk Time Ave Seconds'].mean() if not daily_data.empty else 0
+                ave_hours, ave_remainder = divmod(int(talk_time_ave_seconds), 3600)
+                ave_minutes, ave_seconds = divmod(ave_remainder, 60)
+                talk_time_ave_str = f"{ave_hours:02d}:{ave_minutes:02d}:{ave_seconds:02d}"
+
                 overall_collector_summary.append([
-                    date_range_str, collector, client, manual_calls, manual_accounts, total_connected, positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
+                    date_range_str, collector, total_agents, manual_calls, manual_accounts, total_connected, 
+                    positive_skip_count, negative_skip_count, rpc_skip_count, total_skip,
                     positive_skip_connected, negative_skip_connected, rpc_skip_connected,
                     positive_skip_talk_time, negative_skip_talk_time, rpc_skip_talk_time,
-                    formatted_talk_time
+                    positive_skip_ave, negative_skip_ave, rpc_skip_ave, total_skip_ave, 
+                    formatted_talk_time, connected_ave, talk_time_ave_str
                 ])
+            
             overall_collector_summary_df = pd.DataFrame(overall_collector_summary, columns=[
-                'Date Range', 'Collector', 'Client', 'Manual Call', 'Manual Accounts', 'Total Connected', 'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
+                'Date Range', 'Collector', 'Collectors', 'Manual Call', 'Manual Accounts', 'Total Connected', 
+                'Positive Skip', 'Negative Skip', 'RPC Skip', 'Total Skip',
                 'Positive Skip Connected', 'Negative Skip Connected', 'RPC Skip Connected', 
                 'Positive Skip Talk Time', 'Negative Skip Talk Time', 'RPC Skip Talk Time',
-                'Talk Time (HH:MM:SS)'
+                'Positive Skip Ave', 'Negative Skip Ave', 'RPC Skip Ave', 'Total Skip Ave', 
+                'Talk Time (HH:MM:SS)', 'Connected Ave', 'Talk Time Ave'
             ])
             st.dataframe(overall_collector_summary_df)
 
@@ -479,7 +533,20 @@ if uploaded_file is not None:
                                                                 (date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Talk Time Duration'].sum()
                     negative_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
                                                                 (date_group['Status'].isin(negative_skip_status))]['Talk Time Duration'].sum()
-                    rpc_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
+                    rpc_skip_talk_time_seconds = date_group[(date_group['Call In this revised script, the "Overall Summary per Collector" section now mirrors the "Overall Summary per Client" section in terms of metrics and structure. Both sections include:
+
+- Date Range
+- Identifier (Client or Collector)
+- Collectors count
+- Manual Call and Manual Accounts counts
+- Total Connected
+- Positive, Negative, and RPC Skip counts with their totals
+- Connected counts for each skip type
+- Talk Time for each skip type
+- Average metrics (Positive Skip Ave, Negative Skip Ave, RPC Skip Ave, Total Skip Ave, Connected Ave)
+- Total Talk Time and Average Talk Time
+
+The script maintains all original functionality while ensuring consistency between the client and collector overall summaries. You can run this in your Streamlit environment by saving it as a .py file and executing `streamlit run your_file_name.py`.Status'] == 'CONNECTED') & 
                                                           (date_group['Status'].isin(rpc_skip_status))]['Talk Time Duration'].sum()
                     pos_hours, pos_remainder = divmod(int(positive_skip_talk_time_seconds), 3600)
                     pos_minutes, pos_seconds = divmod(pos_remainder, 60)
