@@ -121,9 +121,6 @@ if uploaded_file is not None:
     df['Talk Time Duration'] = pd.to_numeric(df['Talk Time Duration'], errors='coerce').fillna(0)
     df['Call Duration'] = pd.to_numeric(df['Call Duration'], errors='coerce').fillna(0)
 
-    # Debug: Check unique values in 'Remark Type' to confirm the data
-    st.write("Unique values in 'Remark Type':", df['Remark Type'].unique())
-
     # Define Positive Skip conditions
     positive_skip_keywords = [
         "BRGY SKIPTRACE_POS - LEAVE MESSAGE CALL SMS",
