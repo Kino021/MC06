@@ -533,20 +533,7 @@ if uploaded_file is not None:
                                                                 (date_group['Status'].astype(str).str.contains('|'.join(positive_skip_keywords), case=False, na=False))]['Talk Time Duration'].sum()
                     negative_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
                                                                 (date_group['Status'].isin(negative_skip_status))]['Talk Time Duration'].sum()
-                    rpc_skip_talk_time_seconds = date_group[(date_group['Call In this revised script, the "Overall Summary per Collector" section now mirrors the "Overall Summary per Client" section in terms of metrics and structure. Both sections include:
-
-- Date Range
-- Identifier (Client or Collector)
-- Collectors count
-- Manual Call and Manual Accounts counts
-- Total Connected
-- Positive, Negative, and RPC Skip counts with their totals
-- Connected counts for each skip type
-- Talk Time for each skip type
-- Average metrics (Positive Skip Ave, Negative Skip Ave, RPC Skip Ave, Total Skip Ave, Connected Ave)
-- Total Talk Time and Average Talk Time
-
-The script maintains all original functionality while ensuring consistency between the client and collector overall summaries. You can run this in your Streamlit environment by saving it as a .py file and executing `streamlit run your_file_name.py`.Status'] == 'CONNECTED') & 
+                    rpc_skip_talk_time_seconds = date_group[(date_group['Call Status'] == 'CONNECTED') & 
                                                           (date_group['Status'].isin(rpc_skip_status))]['Talk Time Duration'].sum()
                     pos_hours, pos_remainder = divmod(int(positive_skip_talk_time_seconds), 3600)
                     pos_minutes, pos_seconds = divmod(pos_remainder, 60)
